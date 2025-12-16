@@ -97,9 +97,6 @@ def observer_inference_joint[w: WRONGNESS_LEVELS, b: BIAS_LEVELS, j: JUSTICE_LEV
     # Condition on observed action
     observer: observes_that[a == observed_action]
     
-    # Return expression that depends on all axes to prevent dimension collapse
-    # This is a hack - we return w (or any axis variable) to preserve dimensions
-    # The actual values returned are the axis values, weighted by probability
     return w
     return b
     return j
@@ -114,17 +111,7 @@ def compute_observer_posteriors(observed_action, prior_w, prior_b, prior_j, prio
     # Get result from memo - with 5 returns, shape is (5, w, b, j, s, a)
     result = observer_inference_joint(observed_action, prior_w, prior_b, prior_j, prior_s)
     
-    # Result shape is (num_returns, w, b, j, s, a) = (5, 3, 3, 2, 2, 3)
-    # Each return gives expected value of that variable weighted by probability
-    # To get the probability-weighted sum, we look at return 0 (w values)
-    
-    # The values in result[0] are probability-weighted expected w values
-    # To recover probabilities, we note that P(w,b,j,s,a) * w gives result[0]
-    # Since we return the axis variable itself, the probability is encoded in the weight
-    
-    # Actually, let's use a different approach - compute probabilities using pure enumeration
-    # For each (w, b, j, s), compute P(a=observed | w, b, j, s) * P(w) * P(b) * P(j) * P(s)
-    
+  
     num_w = len(WRONGNESS_LEVELS)
     num_b = len(BIAS_LEVELS)
     num_j = len(JUSTICE_LEVELS)
