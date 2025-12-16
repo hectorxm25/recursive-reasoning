@@ -1,6 +1,6 @@
 # Strategic Punishment: A Computational Model of Reputational Signaling
 
-This repository contains the code and results for a computational modeling project exploring how strategic considerations about audience beliefs influence punishment behavior. This project was completed as part of MIT's 9.660 (Computational Cognitive Science) final project.
+This repository contains the code and results for a computational modeling project exploring how strategic considerations about audience beliefs influence punishment behavior. This is my 9.660 Fall 2025 final project.
 
 ## Overview
 
