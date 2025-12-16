@@ -43,7 +43,6 @@ The project includes four computational experiments that test different aspects 
 
 **Setup**: Varies the out-group's prior belief that the punisher is biased against them, from 0.0 (trust) to 1.0 (complete distrust).
 
-**Key Finding**: Strategic punishers show a bifurcation—as polarization increases, they dramatically reduce harsh punishment to avoid appearing biased. Naive punishers remain constant.
 
 **Output**: `exp1_results.json` → `exp1_bifurcation.png`
 
@@ -53,8 +52,6 @@ The project includes four computational experiments that test different aspects 
 
 **Setup**: In-group knows the act is fully wrong (w=1.0), while out-group believes it's not wrong (w=0.0). Both groups care about the punisher's justice and bias.
 
-**Key Finding**: Strategic punishers avoid harsh punishment (choosing "None" instead) to preserve their reputation with the out-group, even though the in-group knows harsh punishment would be justified. This creates a "dog whistle" effect where the same action signals different things to different audiences.
-
 **Output**: `exp2_results.json` → `exp2_action_bar.png`, `exp2_posteriors.png`
 
 ### Experiment 3: Martyrdom / Signaling Commitment
@@ -63,8 +60,6 @@ The project includes four computational experiments that test different aspects 
 
 **Setup**: Tests a minor infraction (wrongness=0.5) while varying the weight placed on out-group reputation.
 
-**Key Finding**: As concern for out-group reputation increases, strategic punishers dramatically reduce harsh punishment, even for acts they know are wrong. This demonstrates how strategic considerations can lead to under-punishment.
-
 **Output**: `exp3_results.json` → `exp3_martyrdom.png`, `exp3_severity_curve.png`
 
 ### Experiment 4: Recursive Dynamics
@@ -72,8 +67,6 @@ The project includes four computational experiments that test different aspects 
 **Question**: How do beliefs evolve over multiple rounds of interaction?
 
 **Setup**: Simulates 4 rounds where punishers act, observers update beliefs, and these updated beliefs become priors for the next round.
-
-**Key Finding**: Both naive and strategic models show decreasing polarization over time as observers learn about the punisher's true characteristics through repeated interactions.
 
 **Output**: `exp4_results.json` → `exp4_dynamics.png`
 
