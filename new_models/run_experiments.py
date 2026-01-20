@@ -13,9 +13,9 @@ jax.config.update('jax_platform_name', 'cpu')
 # -----------------------------------------------------------------------------
 # 1. CONSTANTS & GRID SETUP
 # -----------------------------------------------------------------------------
-GRID_SIZE = 50
+GRID_SIZE = 200
 W_GRID = jnp.linspace(0.0, 1.0, GRID_SIZE)
-B_GRID = jnp.linspace(-1.0, 1.0, GRID_SIZE)
+B_GRID = jnp.linspace(-0.5, 0.5, GRID_SIZE) # TODO: change
 J_GRID = jnp.linspace(0.0, 1.0, GRID_SIZE)
 
 ACTIONS = jnp.array([0, 1, 2])       # None, Mild, Harsh
@@ -191,6 +191,7 @@ def run_simulation(num_rounds, true_state, start_priors_in, start_priors_out, we
             'round': r,
             'action': action,
             'prob_harsh': float(probs[2]),
+            'prob_mild': float(probs[1]),
             'prob_none': float(probs[0]),
             
             # Save In-Group
@@ -208,20 +209,20 @@ def run_simulation(num_rounds, true_state, start_priors_in, start_priors_out, we
         
     return pd.DataFrame(history)
 
-def run_conflict_sweep():
+def run_conflict_sweep(debug=False):
     print("Running Information Asymmetry Sweep (Corrected)...")
     
     # true state of punisher
-    true_state = {'w': 1.0, 'b': 0.0, 'j': 1.0}
+    true_state = {'w': 0.5, 'b': 0.0, 'j': 1.0}
     
     # in group priors
-    priors_in = ((1,1), (5,5), (5,1)) 
+    priors_in = ((1,1), (5,5), (1,1)) 
     
     # out group priors
-    priors_out = ((1, 5), (2, 5), (2, 2)) 
+    priors_out = ((1, 5), (5, 5), (1, 1)) 
     
     # sweep of weights
-    w_vals = [0.0, 5.0, 20.0] 
+    sweep_values = [10.0, 0.0, -10.0] 
     
     fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharey=True)
     
@@ -230,15 +231,15 @@ def run_conflict_sweep():
         t_in = create_prior_tensor(*priors_in)
         t_out = create_prior_tensor(*priors_out)
     
-    for i, w_avoid_bias in enumerate(w_vals):
+    for i, sweep_value in enumerate(sweep_values):
         weights = {
-            'scale_int': 1.0,      
-            'scale_rep': 1.0,       
-            'w_J_in': 1.0,          
-            'w_B_in': 0.0,
+            'scale_int': 0.5,      
+            'scale_rep': 2.0,       
+            'w_J_in': 10.0,          
+            'w_B_in': 1.0,
             'w_J_out': 0.0,
-            'w_B_out': w_avoid_bias, 
-            'beta_strat': 20.0       
+            'w_B_out': sweep_value, 
+            'beta_strat': 10.0       
         }
         
         # This will tell you explicitly why the agent is choosing what it chooses
@@ -262,10 +263,11 @@ def run_conflict_sweep():
         # Plot Action Probabilities
         ax2 = ax.twinx()
         ax2.plot(rounds, df['prob_harsh'], '--', color='black', alpha=0.8, label='Prob(Harsh)')
+        ax2.plot(rounds, df['prob_mild'], '-.', color='green', alpha=0.8, label='Prob(Mild)')
         ax2.plot(rounds, df['prob_none'], ':', color='blue', alpha=0.8, label='Prob(None)')
         ax2.set_ylim(-0.1, 1.1)
         
-        title_str = f"Weight={w_avoid_bias}"
+        title_str = f"Weight={sweep_value}"
         ax.set_title(title_str)
         ax.set_ylim(-1.0, 1.0)
         ax.axhline(0, color='k', linestyle='-', linewidth=0.5)
@@ -289,4 +291,4 @@ def run_conflict_sweep():
     print(f"Saved sweep results to {os.path.abspath(output_path)}")
 
 if __name__ == "__main__":
-    run_conflict_sweep()
+    run_conflict_sweep(debug=True)
