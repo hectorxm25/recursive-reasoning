@@ -170,6 +170,9 @@ def run_simulation(num_rounds, true_state, start_priors_in, start_priors_out, we
     curr_out = create_prior_tensor(*start_priors_out)
     
     history = []
+
+    # Create a local random state for this specific simulation run
+    rng = np.random.RandomState(42)
     
     for r in range(num_rounds):
         # 1. Strategic Decision
@@ -193,6 +196,10 @@ def run_simulation(num_rounds, true_state, start_priors_in, start_priors_out, we
             'prob_harsh': float(probs[2]),
             'prob_mild': float(probs[1]),
             'prob_none': float(probs[0]),
+
+            # Save Wrongness
+            'in_wrongness_mean': float(m_in['e_w']), 'in_wrongness_std': float(m_in['std_w']),
+            'out_wrongness_mean': float(m_out['e_w']), 'out_wrongness_std': float(m_out['std_w']),
             
             # Save In-Group
             'in_justice_mean': float(m_in['e_j']), 'in_justice_std': float(m_in['std_j']),
@@ -224,7 +231,7 @@ def run_conflict_sweep(debug=False):
     # sweep of weights
     sweep_values = [10.0, 0.0, -10.0] 
     
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharey=True)
+    fig, axes = plt.subplots(3, 3, figsize=(15, 12))
     
     # Pre-build tensors for debug
     if debug:
@@ -252,37 +259,83 @@ def run_conflict_sweep(debug=False):
         ax = axes[i]
         rounds = df['round']
         
-        # Plot Out-Group Bias Belief
-        mean = df['out_bias_mean']
-        std = df['out_bias_std']
+       # ==========================================
+        # ROW 1: WRONGNESS BELIEFS
+        # ==========================================
+        ax_wrong = axes[0, i]
         
-        # Ribbon Plot
-        ax.plot(rounds, mean, 'o-', color='red', label='Out-Group Belief E[b]')
-        ax.fill_between(rounds, mean - std, mean + std, color='red', alpha=0.2)
+        plot_belief_ribbon(ax_wrong, rounds, 
+                          df['in_wrongness_mean'], df['in_wrongness_std'],
+                          color='blue', label='In-Group E[w]')
         
-        # Plot Action Probabilities
-        ax2 = ax.twinx()
-        ax2.plot(rounds, df['prob_harsh'], '--', color='black', alpha=0.8, label='Prob(Harsh)')
-        ax2.plot(rounds, df['prob_mild'], '-.', color='green', alpha=0.8, label='Prob(Mild)')
-        ax2.plot(rounds, df['prob_none'], ':', color='blue', alpha=0.8, label='Prob(None)')
-        ax2.set_ylim(-0.1, 1.1)
+        plot_belief_ribbon(ax_wrong, rounds,
+                          df['out_wrongness_mean'], df['out_wrongness_std'],
+                          color='red', label='Out-Group E[w]')
         
-        title_str = f"Weight={sweep_value}"
-        ax.set_title(title_str)
-        ax.set_ylim(-1.0, 1.0)
-        ax.axhline(0, color='k', linestyle='-', linewidth=0.5)
-        
-        if i==0: ax.set_ylabel("Expected Bias (-1=Against)")
-        # Only add the legend to the last plot to avoid clutter
-        if i == 2: 
-            ax2.set_ylabel("Action Probability")
-            # Combine legends from both axes
-            lines, labels = ax.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines + lines2, labels + labels2, loc='center right')
-        ax.set_xlabel("Round")
+        ax_wrong.set_title(f"{sweep_variable}={sweep_value}")
+        ax_wrong.set_ylim(-0.1, 1.1)
+        ax_wrong.set_xlabel("Round")
+        if i == 0:
+            ax_wrong.set_ylabel("Expected Wrongness E[w]")
+        if i == 2:
+            ax_wrong.legend(loc='upper right', fontsize=8)
 
+        # ==========================================
+        # ROW 2: BIAS BELIEFS
+        # ==========================================
+        ax_bias = axes[1, i] 
+        
+        plot_belief_ribbon(ax_bias, rounds, 
+                          df['in_bias_mean'], df['in_bias_std'],
+                          color='blue', label='In-Group E[b]')
+        
+        plot_belief_ribbon(ax_bias, rounds,
+                          df['out_bias_mean'], df['out_bias_std'],
+                          color='red', label='Out-Group E[b]')
+        
+        # Plot Action Probabilities on twin axis
+        ax2_bias = plot_action_probabilities(ax_bias, df)
+        
+        ax_bias.set_ylim(-0.6, 0.6)
+        ax_bias.axhline(0, color='k', linestyle='-', linewidth=0.5)
+        ax_bias.set_xlabel("Round")
+        
+        if i == 0:
+            ax_bias.set_ylabel("Expected Bias E[b]")
+        if i == 2:
+            ax2_bias.set_ylabel("Action Probability")
+            lines, labels = ax_bias.get_legend_handles_labels()
+            lines2, labels2 = ax2_bias.get_legend_handles_labels()
+            ax2_bias.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=8)
+        
+        # ==========================================
+        # ROW 3: JUSTICE BELIEFS
+        # ==========================================
+        ax_justice = axes[2, i]
+        
+        plot_belief_ribbon(ax_justice, rounds,
+                          df['in_justice_mean'], df['in_justice_std'],
+                          color='blue', label='In-Group E[j]')
+        
+        plot_belief_ribbon(ax_justice, rounds,
+                          df['out_justice_mean'], df['out_justice_std'],
+                          color='red', label='Out-Group E[j]')
+        
+        ax_justice.set_ylim(0.0, 1.0)
+        ax_justice.set_xlabel("Round")
+        
+        if i == 0:
+            ax_justice.set_ylabel("Expected Justice E[j]")
+        if i == 2:
+            ax_justice.legend(loc='upper right', fontsize=8)
+
+    # Row Labels
+    fig.text(0.02, 0.88, 'Wrongness\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
+    fig.text(0.02, 0.62, 'Bias\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
+    fig.text(0.02, 0.28, 'Justice\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
+    
     plt.tight_layout()
+    plt.subplots_adjust(left=0.08)
     # Save to output file (relative to script location)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(script_dir, "..", "sweep_results.png")

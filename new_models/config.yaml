@@ -11,19 +11,19 @@ BETA_NAIVE: 10.0  # Observer's assumption of punisher rationality
 # -----------------------------------------------------------------------------
 # Weight Parameters for Strategic Planner
 # -----------------------------------------------------------------------------
-w_J_in: 10.0      # Weight for in-group justice perception
+w_J_in: 5.0      # Weight for in-group justice perception
 w_J_out: 0.0      # Weight for out-group justice perception
-w_B_in: 1.0       # Weight for in-group bias perception
-w_B_out: 0.0      # Weight for out-group bias perception
+w_B_in: 0.0       # Weight for in-group bias perception
+w_B_out: 10.0      # Weight for out-group bias perception
 
-scale_int: 0.5    # Scale for intrinsic utility
-scale_rep: 2.0    # Scale for reputational utility
-beta_strat: 10.0  # Rationality parameter for strategic decision
+scale_int: 0.0    # Scale for intrinsic utility
+scale_rep: 1.0    # Scale for reputational utility
+beta_strat: 20.0  # Rationality parameter for strategic decision
 
 # -----------------------------------------------------------------------------
 # True State of Punisher
 # -----------------------------------------------------------------------------
-true_state_w: 0.5  # True wrongness perception
+true_state_w: 1.0  # True wrongness perception
 true_state_b: 0.0  # True bias (0 = unbiased)
 true_state_j: 1.0  # True justice motivation
 
@@ -48,33 +48,33 @@ sweep_variable: "w_B_out"
 
 # Sweep values (must have exactly 3 values)
 sweep_values:
-  - 10.0
   - 0.0
-  - -10.0
+  - 10.0
+  - 20.0
 
 # Output path for the figure
-plot_figure_save_path: "../sweep_results_all.png"
+plot_figure_save_path: "../dog_whistle_check2.png"
 
 # -----------------------------------------------------------------------------
 # Prior Distributions (Beta distribution parameters: alpha, beta)
 # -----------------------------------------------------------------------------
 
 # In-Group Priors
-prior_in_w_alpha: 1   # W prior: Beta(1, 1) = uniform
+prior_in_w_alpha: 5  
 prior_in_w_beta: 1
 
-prior_in_b_alpha: 5   # B prior: Beta(5, 5) = peaked at 0
+prior_in_b_alpha: 5  
 prior_in_b_beta: 5
 
-prior_in_j_alpha: 1   # J prior: Beta(1, 1) = uniform
+prior_in_j_alpha: 1  
 prior_in_j_beta: 1
 
 # Out-Group Priors
-prior_out_w_alpha: 1  # W prior: Beta(1, 5) = skewed low
+prior_out_w_alpha: 1 
 prior_out_w_beta: 5
 
-prior_out_b_alpha: 5  # B prior: Beta(5, 5) = peaked at 0
+prior_out_b_alpha: 5 
 prior_out_b_beta: 5
 
-prior_out_j_alpha: 1  # J prior: Beta(1, 1) = uniform
+prior_out_j_alpha: 1
 prior_out_j_beta: 1

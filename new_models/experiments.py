@@ -81,6 +81,10 @@ def run_simulation(num_rounds, true_state, start_priors_in, start_priors_out, we
             'prob_harsh': float(probs[2]),
             'prob_mild': float(probs[1]),
             'prob_none': float(probs[0]),
+
+            # Save Wrongness Metrics
+            'in_wrongness_mean': float(m_in['e_w']), 'in_wrongness_std': float(m_in['std_w']),
+            'out_wrongness_mean': float(m_out['e_w']), 'out_wrongness_std': float(m_out['std_w']),
             
             # Save In-Group
             'in_justice_mean': float(m_in['e_j']), 'in_justice_std': float(m_in['std_j']),
@@ -317,10 +321,10 @@ def run_conflict_sweep(config, debug=False):
     if not recreate_model_ctx:
         model_ctx = build_model_context(config)
     
-    # Create figure with 2 rows x 3 columns
-    # Row 1: Bias beliefs (in-group and out-group) with action probabilities
-    # Row 2: Justice beliefs (in-group and out-group)
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    # row 1: wrongness
+    # row 2: bias
+    # row 3: justice
+    fig, axes = plt.subplots(3, 3, figsize=(15, 8))
     
     # Pre-build tensors for debug (only if not sweeping model context or priors)
     if debug and not recreate_model_ctx:
@@ -352,15 +356,36 @@ def run_conflict_sweep(config, debug=False):
         
         rounds = df['round']
         
-        # ----- Row 1: Bias Beliefs -----
-        ax_bias = axes[0, i]
+        # ==========================================
+        # ROW 1: WRONGNESS BELIEFS (NEW)
+        # ==========================================
+        ax_wrong = axes[0, i]
         
-        # Plot In-Group Bias
+        plot_belief_ribbon(ax_wrong, rounds, 
+                          df['in_wrongness_mean'], df['in_wrongness_std'],
+                          color='blue', label='In-Group E[w]')
+        
+        plot_belief_ribbon(ax_wrong, rounds,
+                          df['out_wrongness_mean'], df['out_wrongness_std'],
+                          color='red', label='Out-Group E[w]')
+        
+        ax_wrong.set_title(f"{sweep_variable}={sweep_value}")
+        ax_wrong.set_ylim(-0.1, 1.1)
+        ax_wrong.set_xlabel("Round")
+        if i == 0:
+            ax_wrong.set_ylabel("Expected Wrongness E[w]")
+        if i == 2:
+            ax_wrong.legend(loc='lower right', fontsize=8)
+
+        # ==========================================
+        # ROW 2: BIAS BELIEFS (Shifted down)
+        # ==========================================
+        ax_bias = axes[1, i] # Was axes[0, i]
+        
         plot_belief_ribbon(ax_bias, rounds, 
                           df['in_bias_mean'], df['in_bias_std'],
                           color='blue', label='In-Group E[b]')
         
-        # Plot Out-Group Bias
         plot_belief_ribbon(ax_bias, rounds,
                           df['out_bias_mean'], df['out_bias_std'],
                           color='red', label='Out-Group E[b]')
@@ -368,8 +393,6 @@ def run_conflict_sweep(config, debug=False):
         # Plot Action Probabilities on twin axis
         ax2_bias = plot_action_probabilities(ax_bias, df)
         
-        # Configure bias axis
-        ax_bias.set_title(f"{sweep_variable}={sweep_value}")
         ax_bias.set_ylim(-0.6, 0.6)
         ax_bias.axhline(0, color='k', linestyle='-', linewidth=0.5)
         ax_bias.set_xlabel("Round")
@@ -378,39 +401,38 @@ def run_conflict_sweep(config, debug=False):
             ax_bias.set_ylabel("Expected Bias E[b]")
         if i == 2:
             ax2_bias.set_ylabel("Action Probability")
-            # Combine legends from both axes
             lines, labels = ax_bias.get_legend_handles_labels()
             lines2, labels2 = ax2_bias.get_legend_handles_labels()
-            ax2_bias.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=8)
+            ax2_bias.legend(lines + lines2, labels + labels2, loc='lower right', fontsize=8)
         
-        # ----- Row 2: Justice Beliefs -----
-        ax_justice = axes[1, i]
+        # ==========================================
+        # ROW 3: JUSTICE BELIEFS (Shifted down)
+        # ==========================================
+        ax_justice = axes[2, i] # Was axes[1, i]
         
-        # Plot In-Group Justice
         plot_belief_ribbon(ax_justice, rounds,
                           df['in_justice_mean'], df['in_justice_std'],
                           color='blue', label='In-Group E[j]')
         
-        # Plot Out-Group Justice
         plot_belief_ribbon(ax_justice, rounds,
                           df['out_justice_mean'], df['out_justice_std'],
                           color='red', label='Out-Group E[j]')
         
-        # Configure justice axis
         ax_justice.set_ylim(0.0, 1.0)
         ax_justice.set_xlabel("Round")
         
         if i == 0:
             ax_justice.set_ylabel("Expected Justice E[j]")
         if i == 2:
-            ax_justice.legend(loc='upper right', fontsize=8)
+            ax_justice.legend(loc='lower right', fontsize=8)
 
-    # Add row labels
-    fig.text(0.02, 0.75, 'Bias\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
+    # Update Row Labels
+    fig.text(0.02, 0.88, 'Wrongness\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
+    fig.text(0.02, 0.62, 'Bias\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
     fig.text(0.02, 0.28, 'Justice\nBeliefs', ha='center', va='center', fontsize=12, fontweight='bold', rotation=90)
     
     plt.tight_layout()
-    plt.subplots_adjust(left=0.08)  # Make room for row labels
+    plt.subplots_adjust(left=0.08)
     
     # Save to output file
     output_path = config['plot_figure_save_path']

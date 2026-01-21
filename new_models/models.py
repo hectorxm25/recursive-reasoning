@@ -13,7 +13,7 @@ jax.config.update('jax_platform_name', 'cpu')
 def setup_grids(grid_size):
     """Create the grids for W, B, J based on grid size."""
     W_GRID = jnp.linspace(0.0, 1.0, grid_size)
-    B_GRID = jnp.linspace(-0.5, 0.5, grid_size)  # TODO: change
+    B_GRID = jnp.linspace(-0.5, 0.5, grid_size)  
     J_GRID = jnp.linspace(0.0, 1.0, grid_size)
     return W_GRID, B_GRID, J_GRID
 
@@ -55,7 +55,10 @@ def make_observer_update(LIKELIHOOD_TENSOR):
     def observer_update(prior_tensor, action_idx):
         likelihood = LIKELIHOOD_TENSOR[action_idx]
         unnorm_post = prior_tensor * likelihood
-        return unnorm_post / (jnp.sum(unnorm_post) + 1e-10)
+        posterior =  unnorm_post / (jnp.sum(unnorm_post) + 1e-10)
+        # add some jitter for numerical stability
+        smooth_posterior = posterior * 0.99 + 0.01 * (1.0 / posterior.size)
+        return smooth_posterior
     return observer_update
 
 def make_get_metrics(W_GRID, B_GRID, J_GRID):
@@ -165,7 +168,10 @@ def debug_utilities(prior_in, prior_out, true_w, true_b, true_j, weights, observ
 
 def create_prior_tensor(w_params, b_params, j_params, W_GRID, B_GRID, J_GRID):
     pdf_w = beta.pdf(W_GRID, *w_params); pdf_w /= pdf_w.sum()
-    pdf_b = beta.pdf(B_GRID, *b_params); pdf_b /= pdf_b.sum()
+    
+    # Shift B_GRID by +0.5 so it maps from [-0.5, 0.5] to [0.0, 1.0]
+    pdf_b = beta.pdf(B_GRID + 0.5, *b_params); pdf_b /= pdf_b.sum()
+    
     pdf_j = beta.pdf(J_GRID, *j_params); pdf_j /= pdf_j.sum()
     return jnp.einsum('i,j,k->ijk', pdf_w, pdf_b, pdf_j)
 
