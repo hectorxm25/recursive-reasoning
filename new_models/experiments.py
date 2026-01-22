@@ -12,7 +12,12 @@ from models import ModelContext
 # CONSTANTS: Valid sweep variables organized by category
 # -----------------------------------------------------------------------------
 
-WEIGHT_VARIABLES = ['w_J_in', 'w_J_out', 'w_B_in', 'w_B_out', 'scale_int', 'scale_rep', 'beta_strat']
+WEIGHT_VARIABLES = [
+    'w_J_in', 'w_J_out', 
+    'w_B_in_dir', 'w_B_out_dir',   # Directional bias weights (for/against)
+    'w_B_in_neu', 'w_B_out_neu',   # Neutrality bias weights (pull toward impartial)
+    'scale_int', 'scale_rep', 'beta_strat'
+]
 MODEL_CONTEXT_VARIABLES = ['GRID_SIZE', 'BETA_NAIVE']
 TRUE_STATE_VARIABLES = ['true_state_w', 'true_state_b', 'true_state_j']
 PRIOR_IN_VARIABLES = [
@@ -122,9 +127,11 @@ def build_weights(config, sweep_variable=None, sweep_value=None):
         'scale_int': config['scale_int'],      
         'scale_rep': config['scale_rep'],       
         'w_J_in': config['w_J_in'],          
-        'w_B_in': config['w_B_in'],
+        'w_B_in_dir': config['w_B_in_dir'],      # Directional bias (for/against)
+        'w_B_in_neu': config['w_B_in_neu'],      # Neutrality bias (pull to impartial)
         'w_J_out': config['w_J_out'],
-        'w_B_out': config['w_B_out'], 
+        'w_B_out_dir': config['w_B_out_dir'],    # Directional bias (for/against)
+        'w_B_out_neu': config['w_B_out_neu'],    # Neutrality bias (pull to impartial)
         'beta_strat': config['beta_strat']       
     }
     
@@ -296,7 +303,10 @@ def run_conflict_sweep(config, debug=False):
     
     The sweep variable is determined by config['sweep_variable'], which can be
     any of the following:
-        - Weight variables: w_J_in, w_J_out, w_B_in, w_B_out, scale_int, scale_rep, beta_strat
+        - Weight variables: w_J_in, w_J_out, 
+                           w_B_in_dir, w_B_out_dir (directional bias for/against),
+                           w_B_in_neu, w_B_out_neu (neutrality bias toward impartial),
+                           scale_int, scale_rep, beta_strat
         - Model context variables: GRID_SIZE, BETA_NAIVE
         - True state variables: true_state_w, true_state_b, true_state_j
         - Prior variables: prior_in_w_alpha, prior_in_w_beta, prior_in_b_alpha, 

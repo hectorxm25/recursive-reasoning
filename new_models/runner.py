@@ -27,7 +27,9 @@ def validate_config(config):
     # Validate required keys exist
     required_keys = [
         'GRID_SIZE', 'BETA_NAIVE',
-        'w_J_in', 'w_J_out', 'w_B_in', 'w_B_out',
+        'w_J_in', 'w_J_out', 
+        'w_B_in_dir', 'w_B_out_dir',   # Directional bias weights
+        'w_B_in_neu', 'w_B_out_neu',   # Neutrality bias weights
         'scale_int', 'scale_rep', 'beta_strat',
         'true_state_w', 'true_state_b', 'true_state_j',
         'rounds', 'sweep_values', 'sweep_variable', 'plot_figure_save_path',

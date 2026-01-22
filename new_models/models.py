@@ -108,11 +108,15 @@ def make_get_strategic_action_probs(observer_update, get_metrics):
             metrics_out = get_metrics(post_out)
             
             # Calculate Reputational Score
+            # Directional bias terms: positive weight pushes toward pro-target, negative toward anti-target
+            # Neutrality terms: positive weight penalizes deviation from impartial (e_b = 0)
             u_rep = (
                 weights['w_J_in'] * metrics_in['e_j'] + 
-                weights['w_B_in'] * metrics_in['e_b'] +
+                weights['w_B_in_dir'] * metrics_in['e_b'] +
                 weights['w_J_out'] * metrics_out['e_j'] + 
-                weights['w_B_out'] * metrics_out['e_b']
+                weights['w_B_out_dir'] * metrics_out['e_b'] -
+                weights['w_B_in_neu'] * jnp.abs(metrics_in['e_b']) -
+                weights['w_B_out_neu'] * jnp.abs(metrics_out['e_b'])
             )
             
             return weights['scale_int'] * u_int + weights['scale_rep'] * u_rep
@@ -133,7 +137,7 @@ def debug_utilities(prior_in, prior_out, true_w, true_b, true_j, weights, observ
     Prints the raw utility values for Action 0 (None) vs Action 2 (Harsh).
     Call this ONCE at the start of a simulation to sanity check scales.
     """
-    print(f"\n--- DEBUG UTILITIES (Weight B_out = {weights['w_B_out']}) ---")
+    print(f"\n--- DEBUG UTILITIES (B_out_dir={weights['w_B_out_dir']}, B_out_neu={weights['w_B_out_neu']}) ---")
     
     # 1. Calculate Intrinsic
     u_int_none = compute_naive_utility(0, true_w, true_b, true_j)
@@ -151,9 +155,9 @@ def debug_utilities(prior_in, prior_out, true_w, true_b, true_j, weights, observ
     print(f"Intrinsic Val:  None={u_int_none:.4f} | Harsh={u_int_harsh:.4f} (Diff={u_int_harsh - u_int_none:.4f})")
     print(f"Out-Group b:    None={b_none:.4f}   | Harsh={b_harsh:.4f}   (Diff={b_none - b_harsh:.4f})")
     
-    # 3. Weighted Total
-    u_rep_none = weights['w_B_out'] * b_none
-    u_rep_harsh = weights['w_B_out'] * b_harsh
+    # 3. Weighted Total (directional + neutrality terms)
+    u_rep_none = weights['w_B_out_dir'] * b_none - weights['w_B_out_neu'] * jnp.abs(b_none)
+    u_rep_harsh = weights['w_B_out_dir'] * b_harsh - weights['w_B_out_neu'] * jnp.abs(b_harsh)
     
     total_none = weights['scale_int'] * u_int_none + weights['scale_rep'] * u_rep_none
     total_harsh = weights['scale_int'] * u_int_harsh + weights['scale_rep'] * u_rep_harsh
