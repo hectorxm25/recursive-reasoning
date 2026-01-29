@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 from jax import vmap
-from scipy.stats import beta
+from jax.scipy.stats import beta
 
 # Force CPU
 jax.config.update('jax_platform_name', 'cpu')
@@ -9,6 +9,8 @@ jax.config.update('jax_platform_name', 'cpu')
 # -----------------------------------------------------------------------------
 # GRID SETUP FUNCTIONS
 # -----------------------------------------------------------------------------
+
+W_GRID_DEBUG = jnp.linspace(0.0, 1.0, 200) # TODO: THIS GRID SIZE IS HARDCODED
 
 def setup_grids(grid_size):
     """Create the grids for W, B, J based on grid size."""
@@ -87,14 +89,84 @@ def make_get_metrics(W_GRID, B_GRID, J_GRID):
         }
     return get_metrics
 
+
+# -----------------------------------------------------------------------------
+# COMMUNICATIVE UTILITY HELPER
+# -----------------------------------------------------------------------------
+
+def make_authority_belief_dist(true_w, W_GRID):
+    """
+    Constructs a sharp probability distribution Q centered on the authority's
+    true_w scalar. This allows us to compute KL(P || Q).
+    """
+    # sharp peak on true_w to convert to beta distribution
+    concentration = 100.0 
+
+    # clip true_w to avoid bounding errors
+    w_safe = jnp.clip(true_w, 0.001, 0.999)
+
+    # convert to alpha, beta parameters
+    # 1.0 to ensure alpha, beta >= 1.0 for stability
+    alpha = w_safe * concentration + 1.0
+    beta_param = (1.0 - w_safe) * concentration + 1.0
+    
+    # Calculate PDF over the grid
+    dist = beta.pdf(W_GRID, alpha, beta_param)
+    
+    # normalize to sum to 1.0
+    return dist / (jnp.sum(dist) + 1e-10)
+
 # -----------------------------------------------------------------------------
 # STRATEGIC PLANNER
 # -----------------------------------------------------------------------------
 
 def make_get_strategic_action_probs(observer_update, get_metrics):
     """Create a strategic action probs function with the given observer and metrics functions."""
+    
+    def _compute_utility_components(prior_in, prior_out, true_w, true_b, true_j, weights, a_idx):
+        """Compute individual utility components for a single action."""
+        # Pre-calculate Authority's Ideal Distribution (Q) for Communication
+        q_w_dist = make_authority_belief_dist(true_w, W_GRID_DEBUG)
+        
+        # A. Intrinsic Utility
+        u_int = compute_naive_utility(a_idx, true_w, true_b, true_j)
+        
+        # B. Reputational Utility
+        post_in = observer_update(prior_in, a_idx)
+        metrics_in = get_metrics(post_in)
+        
+        post_out = observer_update(prior_out, a_idx)
+        metrics_out = get_metrics(post_out)
+
+        # Maximizing Justice (e_j) and Impartiality (neutral e_b)
+        u_rep = (
+            weights['w_J_in'] * metrics_in['e_j'] + weights['w_J_out'] * metrics_out['e_j'] -
+            weights['w_B_in_neu'] * jnp.abs(metrics_in['e_b']) - weights['w_B_out_neu'] * jnp.abs(metrics_out['e_b'])
+        )
+        
+        # C. Communicative Utility (Jensen-Shannon Divergence)
+        p_w_in = jnp.sum(post_in, axis=(1, 2))
+        p_w_out = jnp.sum(post_out, axis=(1, 2))
+        
+        def jsd(p, q):
+            m = 0.5 * (p + q)
+            kl_pm = jnp.sum(p * jnp.log((p + 1e-10) / (m + 1e-10)))
+            kl_qm = jnp.sum(q * jnp.log((q + 1e-10) / (m + 1e-10)))
+            return 0.5 * kl_pm + 0.5 * kl_qm
+        
+        jsd_in = jsd(p_w_in, q_w_dist)
+        jsd_out = jsd(p_w_out, q_w_dist)
+        
+        # Utility is NEGATIVE JSD (minimize distance = maximize utility)
+        u_comm = -1.0 * (jsd_in + jsd_out)
+        
+        return u_int, u_rep, u_comm
+    
     @jax.jit
     def get_strategic_action_probs(prior_in, prior_out, true_w, true_b, true_j, weights):
+        
+        # Pre-calculate Authority's Ideal Distribution (Q) for Communication
+        q_w_dist = make_authority_belief_dist(true_w, W_GRID_DEBUG) # TODO: THIS GRID SIZE IS HARDCODED
         
         def utility_for_action(a_idx):
             # A. Intrinsic Utility
@@ -106,27 +178,71 @@ def make_get_strategic_action_probs(observer_update, get_metrics):
             
             post_out = observer_update(prior_out, a_idx)
             metrics_out = get_metrics(post_out)
-            
-            # Calculate Reputational Score
-            # Directional bias terms: positive weight pushes toward pro-target, negative toward anti-target
-            # Neutrality terms: positive weight penalizes deviation from impartial (e_b = 0)
+
+            # --- 2. Reputational Utility ---
+            # Maximizing Justice (e_j) and Impartiality (neutral e_b)
             u_rep = (
-                weights['w_J_in'] * metrics_in['e_j'] + 
-                weights['w_B_in_dir'] * metrics_in['e_b'] +
-                weights['w_J_out'] * metrics_out['e_j'] + 
-                weights['w_B_out_dir'] * metrics_out['e_b'] -
-                weights['w_B_in_neu'] * jnp.abs(metrics_in['e_b']) -
-                weights['w_B_out_neu'] * jnp.abs(metrics_out['e_b'])
+                weights['w_J_in'] * metrics_in['e_j'] + weights['w_J_out'] * metrics_out['e_j'] -        # Be seen as Just
+                weights['w_B_in_neu'] * jnp.abs(metrics_in['e_b']) - weights['w_B_out_neu'] * jnp.abs(metrics_out['e_b']) # Be seen as Neutral
             )
             
-            return weights['scale_int'] * u_int + weights['scale_rep'] * u_rep
+            # C. Communicative Utility (Jensen-Shannon Divergence)
+            # Minimize JSD(P || Q) where P is Audience Belief, Q is Authority Belief
+            # JSD is symmetric and bounded [0, 1], more stable than KL divergence
+            
+            # Step 1: Marginalize Audience Posterior to get their W-belief (P)
+            # post_in has shape (W, B, J). Sum over axis 1 (B) and 2 (J) to get W.
+            p_w_in = jnp.sum(post_in, axis=(1, 2))
+            p_w_out = jnp.sum(post_out, axis=(1, 2))
+            
+            # Step 2: Compute JSD(P || Q) = 0.5 * KL(P || M) + 0.5 * KL(Q || M)
+            # where M = 0.5 * (P + Q) is the mixture distribution
+            # We add 1e-10 to avoid division by zero or log(0)
+            def jsd(p, q):
+                m = 0.5 * (p + q)
+                kl_pm = jnp.sum(p * jnp.log((p + 1e-10) / (m + 1e-10)))
+                kl_qm = jnp.sum(q * jnp.log((q + 1e-10) / (m + 1e-10)))
+                return 0.5 * kl_pm + 0.5 * kl_qm
+            
+            jsd_in = jsd(p_w_in, q_w_dist)
+            jsd_out = jsd(p_w_out, q_w_dist)
+            
+            # Utility is NEGATIVE JSD (minimize distance = maximize utility)
+            u_comm = -1.0 * (jsd_in + jsd_out) # TODO: could add weights here if we care more about one group matching punisher's belief more than, more customizable if needed
+            
+            # Total Utility
+            return (weights['scale_int'] * u_int + 
+                    weights['scale_rep'] * u_rep + 
+                    weights.get('scale_comm', 0.0) * u_comm)
 
         strat_utilities = vmap(utility_for_action)(ACTIONS)
         
         # Higher beta_strat makes the agent follow the utility more strictly
         return jax.nn.softmax(weights['beta_strat'] * strat_utilities)
     
-    return get_strategic_action_probs
+    def get_utility_components(prior_in, prior_out, true_w, true_b, true_j, weights):
+        """
+        Returns the individual utility components for each action.
+        
+        Returns:
+            dict with keys for each action (0=None, 1=Mild, 2=Harsh), each containing:
+                'u_int': intrinsic utility
+                'u_rep': reputational utility  
+                'u_comm': communicative utility
+        """
+        results = {}
+        for a_idx in [0, 1, 2]:
+            u_int, u_rep, u_comm = _compute_utility_components(
+                prior_in, prior_out, true_w, true_b, true_j, weights, a_idx
+            )
+            results[a_idx] = {
+                'u_int': float(u_int),
+                'u_rep': float(u_rep),
+                'u_comm': float(u_comm)
+            }
+        return results
+    
+    return get_strategic_action_probs, get_utility_components
 
 # -----------------------------------------------------------------------------
 # DIAGNOSTIC HELPER
@@ -204,7 +320,7 @@ class ModelContext:
         # Create bound functions
         self.observer_update = make_observer_update(self.LIKELIHOOD_TENSOR)
         self.get_metrics = make_get_metrics(self.W_GRID, self.B_GRID, self.J_GRID)
-        self.get_strategic_action_probs = make_get_strategic_action_probs(
+        self.get_strategic_action_probs, self.get_utility_components = make_get_strategic_action_probs(
             self.observer_update, self.get_metrics
         )
     
