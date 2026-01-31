@@ -12,20 +12,39 @@ def configure_device(device='cpu'):
         device: 'cpu' for CPU, 'gpu' for GPU (uses first available GPU)
     
     Must be called BEFORE importing any modules that use JAX.
+    Returns the actual device being used (may differ if GPU unavailable).
     """
     import jax
-    if device == 'cpu':
-        jax.config.update('jax_platform_name', 'cpu')
-    elif device == 'gpu':
-        # JAX will automatically use GPU if available
-        # Setting to None or not setting allows JAX to auto-detect
-        jax.config.update('jax_platform_name', 'gpu')
-    else:
+    
+    if device not in ('cpu', 'gpu'):
         raise ValueError(f"Unknown device: {device}. Use 'cpu' or 'gpu'.")
     
-    # Print which device is being used
-    print(f"JAX configured to use: {device}")
-    print(f"Available devices: {jax.devices()}")
+    actual_device = device
+    
+    if device == 'gpu':
+        # Attempt to configure GPU - set platform first, then verify it works
+        try:
+            jax.config.update('jax_platform_name', 'gpu')
+            # Force JAX to actually initialize the backend by querying devices
+            # This will raise an exception if GPU isn't available
+            gpu_devices = jax.devices()
+            print(f"JAX configured to use: gpu")
+            print(f"Available GPU devices: {gpu_devices}")
+        except Exception as e:
+            # GPU not available (e.g., CUDA-enabled jaxlib not installed)
+            print(f"WARNING: GPU not available: {e}")
+            print("Falling back to CPU.")
+            actual_device = 'cpu'
+            jax.config.update('jax_platform_name', 'cpu')
+            print(f"JAX configured to use: cpu")
+            print(f"Available CPU devices: {jax.devices()}")
+    else:
+        # CPU requested
+        jax.config.update('jax_platform_name', 'cpu')
+        print(f"JAX configured to use: cpu")
+        print(f"Available CPU devices: {jax.devices()}")
+    
+    return actual_device
 
 # Parse device argument early, before other imports
 def parse_device_arg():
