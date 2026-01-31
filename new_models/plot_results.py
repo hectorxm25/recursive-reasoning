@@ -730,7 +730,7 @@ def run_figure_1_utility(model_ctx, filename="fig1_utility_polarized_beliefs.png
     title_suffix = " (All Actions)" if punishment_mode == 'all' else ""
     fig.suptitle(f"Polarized Beliefs: Utility Components vs Authority's Belief (W){title_suffix}", fontsize=16, fontweight='bold')
     
-    w_values = np.linspace(0.0, 1.0, 20)
+    w_values = np.linspace(0.0, 1.0, 100) # changed to be more fine-grained
     
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
