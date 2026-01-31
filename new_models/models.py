@@ -23,7 +23,8 @@ def setup_grids(grid_size):
 ACTIONS = jnp.array([0, 1, 2])       # None, Mild, Harsh
 SEVERITY = jnp.array([0.0, 0.5, 1.0])
 COST_TARGET = jnp.array([0.0, -0.5, -1.0])
-COST_SELF = jnp.array([0.0, -0.1, -0.2])
+# COST_SELF = jnp.array([0.0, -0.1, -0.2])
+COST_SELF = jnp.array([0.0, 0.0, 0.0]) # this is for other settings; not focusing on selfishness, see Radkani et al. 
 
 # -----------------------------------------------------------------------------
 # NAIVE UTILITY & LIKELIHOODS

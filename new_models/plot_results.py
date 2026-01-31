@@ -89,14 +89,14 @@ def get_agent_weights(agent_type):
     if agent_type == 'naive':
         pass 
     elif agent_type == 'reputation':
-        weights['scale_rep'] = 1.0
+        weights['scale_rep'] = 5.0
         val = 2.0
         weights['w_J_in'] = val
         weights['w_J_out'] = val
         weights['w_B_in_neu'] = val
         weights['w_B_out_neu'] = val
     elif agent_type == 'communicative':
-        weights['scale_comm'] = 1.0 
+        weights['scale_comm'] = 20.0 
         
     return weights
 
@@ -723,7 +723,7 @@ def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.pn
 # MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
 
-def main(log_dir="logs", utility_mode=False, punishment_mode='mild'):
+def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None):
     """Run all figure simulations with logging.
     
     Args:
@@ -731,6 +731,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild'):
         utility_mode: If True, generate utility component plots instead of probability plots
         punishment_mode: For probability plots, controls what the dashed line shows:
             'mild' - P(Mild), 'none' - P(None), 'total-punishment' - only P(Mild)+P(Harsh)
+        save_dir: Optional directory to save figures. If None, saves to current directory.
     """
     global logger
     logger = setup_logging(log_dir=log_dir)
@@ -741,6 +742,9 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild'):
     logger.info(f"Mode: {'UTILITY' if utility_mode else 'PROBABILITY'}")
     if not utility_mode:
         logger.info(f"Punishment Mode: {punishment_mode}")
+    if save_dir:
+        logger.info(f"Save Directory: {save_dir}")
+        os.makedirs(save_dir, exist_ok=True)
     logger.info("=" * 60)
     
     logger.info("Building model context...")
@@ -753,24 +757,29 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild'):
     # Run all three figures
     logger.info("Running 3 figure simulations...")
     
+    def get_save_path(fname):
+        if save_dir:
+            return os.path.join(save_dir, fname)
+        return fname
+
     if utility_mode:
         logger.info("[Figure 1/3] (Utility Mode)")
-        run_figure_1_utility(model_ctx, "fig1_utility_polarized_beliefs.png")
+        run_figure_1_utility(model_ctx, get_save_path("fig1_utility_polarized_beliefs.png"))
         
         logger.info("[Figure 2/3] (Utility Mode)")
-        run_figure_2_utility(model_ctx, "fig2_utility_wrongness_polarization.png")
+        run_figure_2_utility(model_ctx, get_save_path("fig2_utility_wrongness_polarization.png"))
         
         logger.info("[Figure 3/3] (Utility Mode)")
-        run_figure_3_utility(model_ctx, "fig3_utility_trust_polarization.png")
+        run_figure_3_utility(model_ctx, get_save_path("fig3_utility_trust_polarization.png"))
     else:
         logger.info("[Figure 1/3]")
-        run_figure_1(model_ctx, "fig1_polarized_beliefs.png", punishment_mode=punishment_mode)
+        run_figure_1(model_ctx, get_save_path("fig1_polarized_beliefs.png"), punishment_mode=punishment_mode)
         
         logger.info("[Figure 2/3]")
-        run_figure_2(model_ctx, "fig2_wrongness_polarization.png", punishment_mode=punishment_mode)
+        run_figure_2(model_ctx, get_save_path("fig2_wrongness_polarization.png"), punishment_mode=punishment_mode)
         
         logger.info("[Figure 3/3]")
-        run_figure_3(model_ctx, "fig3_trust_polarization.png", punishment_mode=punishment_mode)
+        run_figure_3(model_ctx, get_save_path("fig3_trust_polarization.png"), punishment_mode=punishment_mode)
     
     logger.info("=" * 60)
     logger.info(f"ALL SIMULATIONS COMPLETED in {time.time() - total_start:.2f}s total")
@@ -798,6 +807,12 @@ if __name__ == "__main__":
         default="logs",
         help="Directory to store log files (default: logs)"
     )
+    parser.add_argument(
+        "--save-dir",
+        type=str,
+        default=None,
+        help="Directory to save generated figures (default: current directory)"
+    )
     
     args = parser.parse_args()
-    main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment)
+    main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment, save_dir=args.save_dir)
