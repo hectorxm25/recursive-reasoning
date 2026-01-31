@@ -830,10 +830,153 @@ def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.pn
     logger.info(f"Figure 3 (Utility) saved to {filename} in {time.time() - figure_start:.2f}s")
 
 # -----------------------------------------------------------------------------
+# BELIEF UPDATE FIGURE FUNCTIONS
+# -----------------------------------------------------------------------------
+
+def run_subplot_all_actions_polarized_wrongness(model_ctx, ax, agent_type, agents, colors, w_values):
+    """Subplot: Polarized Wrongness, Uncertain Motives - all 3 actions per agent (9 lines total)."""
+    true_j, true_b = agent_type['j'], agent_type['b']
+    
+    # Polarized wrongness, uncertain motives priors (same as run_subplot_polarized_wrongness)
+    p_j_unc = (1.0, 1.0)
+    p_b_unc = (1.0, 1.0)
+    p_in_w = get_beta_params(0.9, 20)
+    p_out_w = get_beta_params(0.1, 20)
+    priors_in = (p_in_w, p_b_unc, p_j_unc)
+    priors_out = (p_out_w, p_b_unc, p_j_unc)
+    
+    action_styles = {0: ':', 1: '--', 2: '-'}  # None: dotted, Mild: dashed, Harsh: solid
+    action_labels = {0: 'None', 1: 'Mild', 2: 'Harsh'}
+    
+    for ag in agents:
+        weights = get_agent_weights(ag)
+        y_actions = {0: [], 1: [], 2: []}
+        
+        for w in w_values:
+            probs = get_action_probs(model_ctx, priors_in, priors_out, w, true_b, true_j, weights)
+            for a_idx in [0, 1, 2]:
+                y_actions[a_idx].append(probs[a_idx])
+        
+        for a_idx in [0, 1, 2]:
+            ax.plot(w_values, y_actions[a_idx], color=colors[ag], linestyle=action_styles[a_idx],
+                    label=f"{ag.capitalize()} ({action_labels[a_idx]})")
+    
+    ax.set_xlabel("Authority's Belief (W)")
+    ax.set_ylabel("P(Action)")
+
+
+def run_subplot_belief_update(model_ctx, ax, agent_type, action_idx, group_type):
+    """
+    Subplot: Show prior and posterior belief about W after observing an action.
+    
+    Args:
+        model_ctx: The model context
+        ax: The matplotlib axis
+        agent_type: Dict with 'j', 'b', 'label' keys (used for context/title)
+        action_idx: 0 (None), 1 (Mild), or 2 (Harsh)
+        group_type: 'in' for in-group, 'out' for out-group, or 'both'
+    """
+    # Polarized wrongness, uncertain motives priors (same as the main plot)
+    p_j_unc = (1.0, 1.0)
+    p_b_unc = (1.0, 1.0)
+    p_in_w = get_beta_params(0.9, 20)
+    p_out_w = get_beta_params(0.1, 20)
+    
+    # Create prior tensors
+    priors_in = (p_in_w, p_b_unc, p_j_unc)
+    priors_out = (p_out_w, p_b_unc, p_j_unc)
+    
+    prior_tensor_in = model_ctx.create_prior_tensor(*priors_in)
+    prior_tensor_out = model_ctx.create_prior_tensor(*priors_out)
+    
+    # Get the W grid for x-axis
+    W_GRID = np.array(model_ctx.W_GRID)
+    
+    # Compute prior P(W) by marginalizing over B and J
+    prior_w_in = np.array(jnp.sum(prior_tensor_in, axis=(1, 2)))
+    prior_w_out = np.array(jnp.sum(prior_tensor_out, axis=(1, 2)))
+    
+    # Perform Bayesian update after observing the action
+    posterior_tensor_in = model_ctx.observer_update(prior_tensor_in, action_idx)
+    posterior_tensor_out = model_ctx.observer_update(prior_tensor_out, action_idx)
+    
+    # Compute posterior P(W | action)
+    posterior_w_in = np.array(jnp.sum(posterior_tensor_in, axis=(1, 2)))
+    posterior_w_out = np.array(jnp.sum(posterior_tensor_out, axis=(1, 2)))
+    
+    # Colors for in-group and out-group
+    color_in = 'blue'
+    color_out = 'red'
+    
+    # Plot priors (dashed) and posteriors (solid)
+    ax.plot(W_GRID, prior_w_in, color=color_in, linestyle='--', linewidth=1.5, 
+            label='In-group Prior', alpha=0.7)
+    ax.plot(W_GRID, posterior_w_in, color=color_in, linestyle='-', linewidth=2, 
+            label='In-group Posterior')
+    ax.plot(W_GRID, prior_w_out, color=color_out, linestyle='--', linewidth=1.5, 
+            label='Out-group Prior', alpha=0.7)
+    ax.plot(W_GRID, posterior_w_out, color=color_out, linestyle='-', linewidth=2, 
+            label='Out-group Posterior')
+    
+    ax.set_xlabel("Wrongness (W)")
+    ax.set_ylabel("P(W)")
+    ax.set_xlim(0, 1)
+
+
+def run_figure_belief_update(model_ctx, filename="fig_belief_update.png"):
+    """
+    Figure: Belief Update Visualization
+    
+    Row 1: Action probabilities (None, Mild, Harsh) for all agents - Polarized Wrongness scenario
+    Row 2: Belief update P(W) after observing None action
+    Row 3: Belief update P(W) after observing Mild action  
+    Row 4: Belief update P(W) after observing Harsh action
+    
+    Columns: 4 agent types (High J Anti-B, High J Pro-B, Low J Anti-B, Low J Pro-B)
+    """
+    figure_start = time.time()
+    logger.info("=" * 60)
+    logger.info("Starting Belief Update Figure")
+    
+    fig, axes = plt.subplots(4, 4, figsize=(20, 20))
+    fig.suptitle("Belief Update: Action Probabilities and Observer Inference\n(Polarized Wrongness, Uncertain Motives)", 
+                 fontsize=16, fontweight='bold')
+    
+    agents = ['naive', 'reputation', 'communicative']
+    colors = {'naive': 'green', 'reputation': 'blue', 'communicative': 'red'}
+    w_values = np.linspace(0.0, 1.0, 100)
+    
+    action_names = {0: 'None', 1: 'Mild', 2: 'Harsh'}
+    
+    for col, agent_type in enumerate(AGENT_TYPES):
+        logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
+        
+        # Row 1: All action probabilities (9 lines)
+        ax1 = axes[0, col]
+        ax1.set_title(f"{agent_type['label']}\nAction Probabilities", fontsize=10)
+        run_subplot_all_actions_polarized_wrongness(model_ctx, ax1, agent_type, agents, colors, w_values)
+        if col == 0:
+            ax1.legend(loc='upper left', fontsize=5)
+        
+        # Rows 2-4: Belief updates for each action
+        for row, action_idx in enumerate([0, 1, 2], start=1):
+            ax = axes[row, col]
+            ax.set_title(f"Belief Update After {action_names[action_idx]} Action", fontsize=10)
+            run_subplot_belief_update(model_ctx, ax, agent_type, action_idx, 'both')
+            if col == 0:
+                ax.legend(loc='upper right', fontsize=7)
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.94)
+    plt.savefig(filename, dpi=150)
+    plt.close(fig)
+    logger.info(f"Belief Update Figure saved to {filename} in {time.time() - figure_start:.2f}s")
+
+# -----------------------------------------------------------------------------
 # MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
 
-def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None):
+def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None, belief_update=False):
     """Run all figure simulations with logging.
     
     Args:
@@ -843,6 +986,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
             'mild' - P(Mild), 'none' - P(None), 'total-punishment' - only P(Mild)+P(Harsh)
             For utility plots with 'all': shows 9 lines (all 3 actions)
         save_dir: Optional directory to save figures. If None, saves to current directory.
+        belief_update: If True, generate belief update visualization figure.
     """
     global logger
     logger = setup_logging(log_dir=log_dir)
@@ -851,7 +995,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     logger.info("=" * 60)
     logger.info("SIMULATION RUN STARTED")
     logger.info(f"Device: {jax.devices()[0].platform} ({jax.devices()})")
-    logger.info(f"Mode: {'UTILITY' if utility_mode else 'PROBABILITY'}")
+    logger.info(f"Mode: {'BELIEF UPDATE' if belief_update else ('UTILITY' if utility_mode else 'PROBABILITY')}")
     logger.info(f"Punishment Mode: {punishment_mode}")
     if save_dir:
         logger.info(f"Save Directory: {save_dir}")
@@ -865,15 +1009,20 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     model_ctx = build_model_context(config)
     logger.info(f"Model context built in {time.time() - model_start:.2f}s")
     
-    # Run all three figures
-    logger.info("Running 3 figure simulations...")
-    
     def get_save_path(fname):
         if save_dir:
             return os.path.join(save_dir, fname)
         return fname
 
-    if utility_mode:
+    if belief_update:
+        # Generate only the belief update figure
+        logger.info("Running belief update figure simulation...")
+        logger.info("[Figure 1/1] (Belief Update Mode)")
+        run_figure_belief_update(model_ctx, get_save_path("fig_belief_update.png"))
+    elif utility_mode:
+        # Run all three utility figures
+        logger.info("Running 3 figure simulations...")
+        
         logger.info(f"[Figure 1/3] (Utility Mode, punishment_mode={punishment_mode})")
         run_figure_1_utility(model_ctx, get_save_path("fig1_utility_polarized_beliefs.png"), punishment_mode=punishment_mode)
         
@@ -883,6 +1032,9 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
         logger.info(f"[Figure 3/3] (Utility Mode, punishment_mode={punishment_mode})")
         run_figure_3_utility(model_ctx, get_save_path("fig3_utility_trust_polarization.png"), punishment_mode=punishment_mode)
     else:
+        # Run all three probability figures
+        logger.info("Running 3 figure simulations...")
+        
         logger.info("[Figure 1/3]")
         run_figure_1(model_ctx, get_save_path("fig1_polarized_beliefs.png"), punishment_mode=punishment_mode)
         
@@ -913,6 +1065,15 @@ if __name__ == "__main__":
         help="Generate utility component plots instead of probability plots"
     )
     parser.add_argument(
+        "--belief-update",
+        action="store_true",
+        default=False,
+        help="Generate belief update visualization showing action probabilities and "
+             "how observers update their beliefs about wrongness after observing each action type. "
+             "Creates a 4-row figure: Row 1 shows all action probs (9 lines), "
+             "Rows 2-4 show prior/posterior P(W) for None/Mild/Harsh actions."
+    )
+    parser.add_argument(
         "--punishment",
         type=str,
         choices=['mild', 'none', 'total-punishment', 'all'],
@@ -940,4 +1101,9 @@ if __name__ == "__main__":
     if args.punishment == 'all' and not args.utility_mode:
         parser.error("--punishment all requires --utility-mode to be enabled")
     
-    main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment, save_dir=args.save_dir)
+    # Validate that belief-update is mutually exclusive with utility-mode
+    if args.belief_update and args.utility_mode:
+        parser.error("--belief-update and --utility-mode are mutually exclusive")
+    
+    main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment, 
+         save_dir=args.save_dir, belief_update=args.belief_update)

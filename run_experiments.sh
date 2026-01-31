@@ -1,8 +1,8 @@
-export SAVE_DIR="./visualizations/comm=20-rep=5-changed-u-target"
-python3 new_models/plot_results.py --punishment none --save-dir $SAVE_DIR"/harsh_and_none" --device gpu
+export SAVE_DIR="./visualizations/comm=20-rep=5-high-discrete-non-extreme-ws"
+# python3 new_models/plot_results.py --punishment none --save-dir $SAVE_DIR"/harsh_and_none" --device gpu
 
-python3 new_models/plot_results.py --punishment mild --save-dir $SAVE_DIR"/harsh_and_mild" --device gpu
+# python3 new_models/plot_results.py --punishment mild --save-dir $SAVE_DIR"/harsh_and_mild" --device gpu
 
-python3 new_models/plot_results.py --punishment total-punishment --save-dir $SAVE_DIR"/total-punishment" --device gpu
+# python3 new_models/plot_results.py --punishment total-punishment --save-dir $SAVE_DIR"/total-punishment" --device gpu
 
-python3 new_models/plot_results.py --punishment all --utility-mode --save-dir $SAVE_DIR"/all-utility" --device gpu
+python3 new_models/plot_results.py --belief-update --save-dir $SAVE_DIR"/belief-update" --device gpu
