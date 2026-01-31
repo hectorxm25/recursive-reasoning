@@ -1,3 +1,47 @@
+import argparse
+import sys
+
+# -----------------------------------------------------------------------------
+# DEVICE CONFIGURATION (must happen before other JAX imports)
+# -----------------------------------------------------------------------------
+
+def configure_device(device='cpu'):
+    """Configure JAX to use the specified device.
+    
+    Args:
+        device: 'cpu' for CPU, 'gpu' for GPU (uses first available GPU)
+    
+    Must be called BEFORE importing any modules that use JAX.
+    """
+    import jax
+    if device == 'cpu':
+        jax.config.update('jax_platform_name', 'cpu')
+    elif device == 'gpu':
+        # JAX will automatically use GPU if available
+        # Setting to None or not setting allows JAX to auto-detect
+        jax.config.update('jax_platform_name', 'gpu')
+    else:
+        raise ValueError(f"Unknown device: {device}. Use 'cpu' or 'gpu'.")
+    
+    # Print which device is being used
+    print(f"JAX configured to use: {device}")
+    print(f"Available devices: {jax.devices()}")
+
+# Parse device argument early, before other imports
+def parse_device_arg():
+    """Parse just the --device argument for early JAX configuration."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'gpu'],
+                        help="Device to use for computation: 'cpu' or 'gpu' (default: cpu)")
+    args, _ = parser.parse_known_args()
+    return args.device
+
+# Configure device before importing JAX-dependent modules
+if __name__ == "__main__":
+    _device = parse_device_arg()
+    configure_device(_device)
+
+# Now import JAX and other modules
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -5,7 +49,6 @@ import matplotlib.pyplot as plt
 import os
 import logging
 import time
-import argparse
 from datetime import datetime
 
 from models import ModelContext
@@ -788,6 +831,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     total_start = time.time()
     logger.info("=" * 60)
     logger.info("SIMULATION RUN STARTED")
+    logger.info(f"Device: {jax.devices()[0].platform} ({jax.devices()})")
     logger.info(f"Mode: {'UTILITY' if utility_mode else 'PROBABILITY'}")
     logger.info(f"Punishment Mode: {punishment_mode}")
     if save_dir:
@@ -835,6 +879,14 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate punishment model visualizations")
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=['cpu', 'gpu'],
+        default='cpu',
+        help="Device to use for computation: 'cpu' or 'gpu' (default: cpu). "
+             "Note: Device is configured early before imports."
+    )
     parser.add_argument(
         "--utility-mode",
         action="store_true",

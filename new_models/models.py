@@ -3,8 +3,8 @@ import jax.numpy as jnp
 from jax import vmap
 from jax.scipy.stats import beta
 
-# Force CPU
-jax.config.update('jax_platform_name', 'cpu')
+# Note: Device configuration (CPU/GPU) should be set by the calling script
+# BEFORE importing this module. See plot_results.py for example.
 
 # -----------------------------------------------------------------------------
 # GRID SETUP FUNCTIONS
