@@ -608,7 +608,7 @@ def run_figure_1(model_ctx, filename="fig1_polarized_beliefs.png", punishment_mo
     
     agents = ['naive', 'reputation', 'communicative']
     colors = {'naive': 'green', 'reputation': 'blue', 'communicative': 'red'}
-    w_values = np.linspace(0.0, 1.0, 20)
+    w_values = np.linspace(0.0, 1.0, 100) # changed to be more fine-grained
     
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
@@ -648,7 +648,7 @@ def run_figure_2(model_ctx, filename="fig2_wrongness_polarization.png", punishme
     
     agents = ['naive', 'reputation', 'communicative']
     colors = {'naive': 'green', 'reputation': 'blue', 'communicative': 'red'}
-    pol_values = np.linspace(0.0, 1.0, 20)
+    pol_values = np.linspace(0.0, 1.0, 100)
     
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
@@ -688,7 +688,7 @@ def run_figure_3(model_ctx, filename="fig3_trust_polarization.png", punishment_m
     
     agents = ['naive', 'reputation', 'communicative']
     colors = {'naive': 'green', 'reputation': 'blue', 'communicative': 'red'}
-    pol_values = np.linspace(0.0, 1.0, 20)
+    pol_values = np.linspace(0.0, 1.0, 100)
     
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
@@ -768,22 +768,22 @@ def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarizatio
     title_suffix = " (All Actions)" if punishment_mode == 'all' else ""
     fig.suptitle(f"Wrongness Polarization: Utility Components vs Audience Polarization Level{title_suffix}", fontsize=16, fontweight='bold')
     
-    pol_values = np.linspace(0.0, 1.0, 20)
+    pol_values = np.linspace(0.0, 1.0, 100)
     
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
         
         # Row 1: Auth believes WRONG (W=1.0)
         ax1 = axes[0, col]
-        ax1.set_title(f"{agent_type['label']}\nAuthority: W=0.8 (Wrong)", fontsize=10)
-        run_subplot_wrongness_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=0.8, punishment_mode=punishment_mode)
+        ax1.set_title(f"{agent_type['label']}\nAuthority: W=1.0 (Wrong)", fontsize=10)
+        run_subplot_wrongness_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0, punishment_mode=punishment_mode)
         if col == 0:
             ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Auth believes NOT WRONG (W=0.0)
         ax2 = axes[1, col]
-        ax2.set_title(f"Authority: W=0.2 (Not Wrong)", fontsize=10)
-        run_subplot_wrongness_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.2, punishment_mode=punishment_mode)
+        ax2.set_title(f"Authority: W=0.0 (Not Wrong)", fontsize=10)
+        run_subplot_wrongness_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0, punishment_mode=punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
@@ -806,22 +806,22 @@ def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.pn
     title_suffix = " (All Actions)" if punishment_mode == 'all' else ""
     fig.suptitle(f"Trust Polarization: Utility Components vs Out-Group Distrust Level{title_suffix}", fontsize=16, fontweight='bold')
     
-    pol_values = np.linspace(0.0, 1.0, 20)
+    pol_values = np.linspace(0.0, 1.0, 100)
     
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
         
         # Row 1: Auth believes WRONG (W=1.0)
         ax1 = axes[0, col]
-        ax1.set_title(f"{agent_type['label']}\nAuthority: W=0.8 (Wrong)", fontsize=10)
-        run_subplot_trust_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=0.8, punishment_mode=punishment_mode)
+        ax1.set_title(f"{agent_type['label']}\nAuthority: W=1.0 (Wrong)", fontsize=10)
+        run_subplot_trust_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0, punishment_mode=punishment_mode)
         if col == 0:
             ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Auth believes NOT WRONG (W=0.0)
         ax2 = axes[1, col]
-        ax2.set_title(f"Authority: W=0.2 (Not Wrong)", fontsize=10)
-        run_subplot_trust_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.2, punishment_mode=punishment_mode)
+        ax2.set_title(f"Authority: W=0.0 (Not Wrong)", fontsize=10)
+        run_subplot_trust_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0, punishment_mode=punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
