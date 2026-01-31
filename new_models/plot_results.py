@@ -311,7 +311,7 @@ UTILITY_LABELS = {
     'u_comm': 'Communicative'
 }
 
-def run_subplot_polarized_motives_utility(model_ctx, ax, agent_type, w_values):
+def run_subplot_polarized_motives_utility(model_ctx, ax, agent_type, w_values, punishment_mode='none'):
     """Utility-mode: Polarized Motives, Uncertain Wrongness - sweep authority's W belief."""
     true_j, true_b = agent_type['j'], agent_type['b']
     
@@ -332,6 +332,7 @@ def run_subplot_polarized_motives_utility(model_ctx, ax, agent_type, w_values):
     
     # Data storage: action -> component -> list of values
     y_harsh = {'u_int': [], 'u_rep': [], 'u_comm': []}
+    y_mild = {'u_int': [], 'u_rep': [], 'u_comm': []}
     y_none = {'u_int': [], 'u_rep': [], 'u_comm': []}
     
     for w in w_values:
@@ -341,26 +342,37 @@ def run_subplot_polarized_motives_utility(model_ctx, ax, agent_type, w_values):
         utils_comm = get_utility_components(model_ctx, priors_in, priors_out, w, true_b, true_j, weights_comm)
         
         # Harsh (action 2)
-        y_harsh['u_int'].append(utils_rep[2]['u_int'])  # Intrinsic is same for both
+        y_harsh['u_int'].append(utils_rep[2]['u_int'])
         y_harsh['u_rep'].append(utils_rep[2]['u_rep'])
         y_harsh['u_comm'].append(utils_comm[2]['u_comm'])
+        
+        # Mild (action 1)
+        y_mild['u_int'].append(utils_rep[1]['u_int'])
+        y_mild['u_rep'].append(utils_rep[1]['u_rep'])
+        y_mild['u_comm'].append(utils_comm[1]['u_comm'])
         
         # None (action 0)
         y_none['u_int'].append(utils_rep[0]['u_int'])
         y_none['u_rep'].append(utils_rep[0]['u_rep'])
         y_none['u_comm'].append(utils_comm[0]['u_comm'])
     
-    # Plot: solid for Harsh, dashed for None
+    # Plot: solid for Harsh, dashed for Mild (or None), dotted for None (if 'all' mode)
     for comp in ['u_int', 'u_rep', 'u_comm']:
         ax.plot(w_values, y_harsh[comp], color=UTILITY_COLORS[comp], linestyle='-', 
                 label=f"{UTILITY_LABELS[comp]} (Harsh)")
-        ax.plot(w_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
-                label=f"{UTILITY_LABELS[comp]} (None)")
+        if punishment_mode == 'all':
+            ax.plot(w_values, y_mild[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (Mild)")
+            ax.plot(w_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle=':',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
+        else:
+            ax.plot(w_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
     
     ax.set_xlabel("Authority's Belief (W)")
     ax.set_ylabel("Utility")
 
-def run_subplot_polarized_wrongness_utility(model_ctx, ax, agent_type, w_values):
+def run_subplot_polarized_wrongness_utility(model_ctx, ax, agent_type, w_values, punishment_mode='none'):
     """Utility-mode: Polarized Wrongness, Uncertain Motives - sweep authority's W belief."""
     true_j, true_b = agent_type['j'], agent_type['b']
     
@@ -376,6 +388,7 @@ def run_subplot_polarized_wrongness_utility(model_ctx, ax, agent_type, w_values)
     
     y_harsh = {'u_int': [], 'u_rep': [], 'u_comm': []}
     y_mild = {'u_int': [], 'u_rep': [], 'u_comm': []}
+    y_none = {'u_int': [], 'u_rep': [], 'u_comm': []}
     
     for w in w_values:
         utils_rep = get_utility_components(model_ctx, priors_in, priors_out, w, true_b, true_j, weights_rep)
@@ -388,17 +401,27 @@ def run_subplot_polarized_wrongness_utility(model_ctx, ax, agent_type, w_values)
         y_mild['u_int'].append(utils_rep[1]['u_int'])
         y_mild['u_rep'].append(utils_rep[1]['u_rep'])
         y_mild['u_comm'].append(utils_comm[1]['u_comm'])
+        
+        y_none['u_int'].append(utils_rep[0]['u_int'])
+        y_none['u_rep'].append(utils_rep[0]['u_rep'])
+        y_none['u_comm'].append(utils_comm[0]['u_comm'])
     
     for comp in ['u_int', 'u_rep', 'u_comm']:
         ax.plot(w_values, y_harsh[comp], color=UTILITY_COLORS[comp], linestyle='-',
                 label=f"{UTILITY_LABELS[comp]} (Harsh)")
-        ax.plot(w_values, y_mild[comp], color=UTILITY_COLORS[comp], linestyle='--',
-                label=f"{UTILITY_LABELS[comp]} (Mild)")
+        if punishment_mode == 'all':
+            ax.plot(w_values, y_mild[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (Mild)")
+            ax.plot(w_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle=':',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
+        else:
+            ax.plot(w_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
     
     ax.set_xlabel("Authority's Belief (W)")
     ax.set_ylabel("Utility")
 
-def run_subplot_wrongness_polarization_utility(model_ctx, ax, agent_type, pol_values, auth_w):
+def run_subplot_wrongness_polarization_utility(model_ctx, ax, agent_type, pol_values, auth_w, punishment_mode='none'):
     """Utility-mode: Wrongness Polarization - sweep polarization level at fixed authority W."""
     true_j, true_b = agent_type['j'], agent_type['b']
     p_motives = ((1.0, 1.0), (1.0, 1.0), (1.0, 1.0))
@@ -407,6 +430,7 @@ def run_subplot_wrongness_polarization_utility(model_ctx, ax, agent_type, pol_va
     weights_comm = get_agent_weights('communicative')
     
     y_harsh = {'u_int': [], 'u_rep': [], 'u_comm': []}
+    y_mild = {'u_int': [], 'u_rep': [], 'u_comm': []}
     y_none = {'u_int': [], 'u_rep': [], 'u_comm': []}
     
     for p in pol_values:
@@ -422,6 +446,10 @@ def run_subplot_wrongness_polarization_utility(model_ctx, ax, agent_type, pol_va
         y_harsh['u_rep'].append(utils_rep[2]['u_rep'])
         y_harsh['u_comm'].append(utils_comm[2]['u_comm'])
         
+        y_mild['u_int'].append(utils_rep[1]['u_int'])
+        y_mild['u_rep'].append(utils_rep[1]['u_rep'])
+        y_mild['u_comm'].append(utils_comm[1]['u_comm'])
+        
         y_none['u_int'].append(utils_rep[0]['u_int'])
         y_none['u_rep'].append(utils_rep[0]['u_rep'])
         y_none['u_comm'].append(utils_comm[0]['u_comm'])
@@ -429,13 +457,19 @@ def run_subplot_wrongness_polarization_utility(model_ctx, ax, agent_type, pol_va
     for comp in ['u_int', 'u_rep', 'u_comm']:
         ax.plot(pol_values, y_harsh[comp], color=UTILITY_COLORS[comp], linestyle='-',
                 label=f"{UTILITY_LABELS[comp]} (Harsh)")
-        ax.plot(pol_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
-                label=f"{UTILITY_LABELS[comp]} (None)")
+        if punishment_mode == 'all':
+            ax.plot(pol_values, y_mild[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (Mild)")
+            ax.plot(pol_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle=':',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
+        else:
+            ax.plot(pol_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
     
     ax.set_xlabel("Polarization Level")
     ax.set_ylabel("Utility")
 
-def run_subplot_trust_polarization_utility(model_ctx, ax, agent_type, pol_values, auth_w):
+def run_subplot_trust_polarization_utility(model_ctx, ax, agent_type, pol_values, auth_w, punishment_mode='none'):
     """Utility-mode: Trust Polarization - sweep out-group distrust at fixed authority W."""
     true_j, true_b = agent_type['j'], agent_type['b']
     
@@ -453,6 +487,7 @@ def run_subplot_trust_polarization_utility(model_ctx, ax, agent_type, pol_values
     weights_comm = get_agent_weights('communicative')
     
     y_harsh = {'u_int': [], 'u_rep': [], 'u_comm': []}
+    y_mild = {'u_int': [], 'u_rep': [], 'u_comm': []}
     y_none = {'u_int': [], 'u_rep': [], 'u_comm': []}
     
     for p in pol_values:
@@ -467,6 +502,10 @@ def run_subplot_trust_polarization_utility(model_ctx, ax, agent_type, pol_values
         y_harsh['u_rep'].append(utils_rep[2]['u_rep'])
         y_harsh['u_comm'].append(utils_comm[2]['u_comm'])
         
+        y_mild['u_int'].append(utils_rep[1]['u_int'])
+        y_mild['u_rep'].append(utils_rep[1]['u_rep'])
+        y_mild['u_comm'].append(utils_comm[1]['u_comm'])
+        
         y_none['u_int'].append(utils_rep[0]['u_int'])
         y_none['u_rep'].append(utils_rep[0]['u_rep'])
         y_none['u_comm'].append(utils_comm[0]['u_comm'])
@@ -474,8 +513,14 @@ def run_subplot_trust_polarization_utility(model_ctx, ax, agent_type, pol_values
     for comp in ['u_int', 'u_rep', 'u_comm']:
         ax.plot(pol_values, y_harsh[comp], color=UTILITY_COLORS[comp], linestyle='-',
                 label=f"{UTILITY_LABELS[comp]} (Harsh)")
-        ax.plot(pol_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
-                label=f"{UTILITY_LABELS[comp]} (None)")
+        if punishment_mode == 'all':
+            ax.plot(pol_values, y_mild[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (Mild)")
+            ax.plot(pol_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle=':',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
+        else:
+            ax.plot(pol_values, y_none[comp], color=UTILITY_COLORS[comp], linestyle='--',
+                    label=f"{UTILITY_LABELS[comp]} (None)")
     
     ax.set_xlabel("Distrust Level")
     ax.set_ylabel("Utility")
@@ -608,7 +653,7 @@ def run_figure_3(model_ctx, filename="fig3_trust_polarization.png", punishment_m
 # UTILITY-MODE FIGURE FUNCTIONS
 # -----------------------------------------------------------------------------
 
-def run_figure_1_utility(model_ctx, filename="fig1_utility_polarized_beliefs.png"):
+def run_figure_1_utility(model_ctx, filename="fig1_utility_polarized_beliefs.png", punishment_mode='none'):
     """
     Figure 1 (Utility Mode): Polarized Beliefs
     Row 1: Polarized Motives (Uncertain W)
@@ -620,7 +665,8 @@ def run_figure_1_utility(model_ctx, filename="fig1_utility_polarized_beliefs.png
     logger.info("Starting Figure 1 (Utility): Polarized Beliefs")
     
     fig, axes = plt.subplots(2, 4, figsize=(20, 10))
-    fig.suptitle("Polarized Beliefs: Utility Components vs Authority's Belief (W)", fontsize=16, fontweight='bold')
+    title_suffix = " (All Actions)" if punishment_mode == 'all' else ""
+    fig.suptitle(f"Polarized Beliefs: Utility Components vs Authority's Belief (W){title_suffix}", fontsize=16, fontweight='bold')
     
     w_values = np.linspace(0.0, 1.0, 20)
     
@@ -630,14 +676,14 @@ def run_figure_1_utility(model_ctx, filename="fig1_utility_polarized_beliefs.png
         # Row 1: Polarized Motives
         ax1 = axes[0, col]
         ax1.set_title(f"{agent_type['label']}\nPolarized Motives (Uncertain W)", fontsize=10)
-        run_subplot_polarized_motives_utility(model_ctx, ax1, agent_type, w_values)
+        run_subplot_polarized_motives_utility(model_ctx, ax1, agent_type, w_values, punishment_mode)
         if col == 0:
-            ax1.legend(loc='upper left', fontsize=6)
+            ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Polarized Wrongness
         ax2 = axes[1, col]
         ax2.set_title(f"Polarized Wrongness (Uncertain Motives)", fontsize=10)
-        run_subplot_polarized_wrongness_utility(model_ctx, ax2, agent_type, w_values)
+        run_subplot_polarized_wrongness_utility(model_ctx, ax2, agent_type, w_values, punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
@@ -645,7 +691,7 @@ def run_figure_1_utility(model_ctx, filename="fig1_utility_polarized_beliefs.png
     plt.close(fig)
     logger.info(f"Figure 1 (Utility) saved to {filename} in {time.time() - figure_start:.2f}s")
 
-def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarization.png"):
+def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarization.png", punishment_mode='none'):
     """
     Figure 2 (Utility Mode): Wrongness Polarization
     Row 1: Authority believes WRONG (W=1.0)
@@ -657,7 +703,8 @@ def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarizatio
     logger.info("Starting Figure 2 (Utility): Wrongness Polarization")
     
     fig, axes = plt.subplots(2, 4, figsize=(20, 10))
-    fig.suptitle("Wrongness Polarization: Utility Components vs Audience Polarization Level", fontsize=16, fontweight='bold')
+    title_suffix = " (All Actions)" if punishment_mode == 'all' else ""
+    fig.suptitle(f"Wrongness Polarization: Utility Components vs Audience Polarization Level{title_suffix}", fontsize=16, fontweight='bold')
     
     pol_values = np.linspace(0.0, 1.0, 20)
     
@@ -667,14 +714,14 @@ def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarizatio
         # Row 1: Auth believes WRONG (W=1.0)
         ax1 = axes[0, col]
         ax1.set_title(f"{agent_type['label']}\nAuthority: W=1.0 (Wrong)", fontsize=10)
-        run_subplot_wrongness_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0)
+        run_subplot_wrongness_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0, punishment_mode=punishment_mode)
         if col == 0:
-            ax1.legend(loc='upper left', fontsize=6)
+            ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Auth believes NOT WRONG (W=0.0)
         ax2 = axes[1, col]
         ax2.set_title(f"Authority: W=0.0 (Not Wrong)", fontsize=10)
-        run_subplot_wrongness_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0)
+        run_subplot_wrongness_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0, punishment_mode=punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
@@ -682,7 +729,7 @@ def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarizatio
     plt.close(fig)
     logger.info(f"Figure 2 (Utility) saved to {filename} in {time.time() - figure_start:.2f}s")
 
-def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.png"):
+def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.png", punishment_mode='none'):
     """
     Figure 3 (Utility Mode): Trust Polarization
     Row 1: Authority believes WRONG (W=1.0)
@@ -694,7 +741,8 @@ def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.pn
     logger.info("Starting Figure 3 (Utility): Trust Polarization")
     
     fig, axes = plt.subplots(2, 4, figsize=(20, 10))
-    fig.suptitle("Trust Polarization: Utility Components vs Out-Group Distrust Level", fontsize=16, fontweight='bold')
+    title_suffix = " (All Actions)" if punishment_mode == 'all' else ""
+    fig.suptitle(f"Trust Polarization: Utility Components vs Out-Group Distrust Level{title_suffix}", fontsize=16, fontweight='bold')
     
     pol_values = np.linspace(0.0, 1.0, 20)
     
@@ -704,14 +752,14 @@ def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.pn
         # Row 1: Auth believes WRONG (W=1.0)
         ax1 = axes[0, col]
         ax1.set_title(f"{agent_type['label']}\nAuthority: W=1.0 (Wrong)", fontsize=10)
-        run_subplot_trust_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0)
+        run_subplot_trust_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0, punishment_mode=punishment_mode)
         if col == 0:
-            ax1.legend(loc='upper left', fontsize=6)
+            ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Auth believes NOT WRONG (W=0.0)
         ax2 = axes[1, col]
         ax2.set_title(f"Authority: W=0.0 (Not Wrong)", fontsize=10)
-        run_subplot_trust_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0)
+        run_subplot_trust_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0, punishment_mode=punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
@@ -731,6 +779,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
         utility_mode: If True, generate utility component plots instead of probability plots
         punishment_mode: For probability plots, controls what the dashed line shows:
             'mild' - P(Mild), 'none' - P(None), 'total-punishment' - only P(Mild)+P(Harsh)
+            For utility plots with 'all': shows 9 lines (all 3 actions)
         save_dir: Optional directory to save figures. If None, saves to current directory.
     """
     global logger
@@ -740,8 +789,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     logger.info("=" * 60)
     logger.info("SIMULATION RUN STARTED")
     logger.info(f"Mode: {'UTILITY' if utility_mode else 'PROBABILITY'}")
-    if not utility_mode:
-        logger.info(f"Punishment Mode: {punishment_mode}")
+    logger.info(f"Punishment Mode: {punishment_mode}")
     if save_dir:
         logger.info(f"Save Directory: {save_dir}")
         os.makedirs(save_dir, exist_ok=True)
@@ -749,7 +797,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     
     logger.info("Building model context...")
     model_start = time.time()
-    config = {'GRID_SIZE': 200, 'BETA_NAIVE': 10.0}
+    config = {'GRID_SIZE': 400, 'BETA_NAIVE': 10.0}
     logger.info(f"Config: {config}")
     model_ctx = build_model_context(config)
     logger.info(f"Model context built in {time.time() - model_start:.2f}s")
@@ -763,14 +811,14 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
         return fname
 
     if utility_mode:
-        logger.info("[Figure 1/3] (Utility Mode)")
-        run_figure_1_utility(model_ctx, get_save_path("fig1_utility_polarized_beliefs.png"))
+        logger.info(f"[Figure 1/3] (Utility Mode, punishment_mode={punishment_mode})")
+        run_figure_1_utility(model_ctx, get_save_path("fig1_utility_polarized_beliefs.png"), punishment_mode=punishment_mode)
         
-        logger.info("[Figure 2/3] (Utility Mode)")
-        run_figure_2_utility(model_ctx, get_save_path("fig2_utility_wrongness_polarization.png"))
+        logger.info(f"[Figure 2/3] (Utility Mode, punishment_mode={punishment_mode})")
+        run_figure_2_utility(model_ctx, get_save_path("fig2_utility_wrongness_polarization.png"), punishment_mode=punishment_mode)
         
-        logger.info("[Figure 3/3] (Utility Mode)")
-        run_figure_3_utility(model_ctx, get_save_path("fig3_utility_trust_polarization.png"))
+        logger.info(f"[Figure 3/3] (Utility Mode, punishment_mode={punishment_mode})")
+        run_figure_3_utility(model_ctx, get_save_path("fig3_utility_trust_polarization.png"), punishment_mode=punishment_mode)
     else:
         logger.info("[Figure 1/3]")
         run_figure_1(model_ctx, get_save_path("fig1_polarized_beliefs.png"), punishment_mode=punishment_mode)
@@ -796,10 +844,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--punishment",
         type=str,
-        choices=['mild', 'none', 'total-punishment'],
+        choices=['mild', 'none', 'total-punishment', 'all'],
         default='mild',
         help="For probability plots: 'mild' shows P(Mild) as dashed, 'none' shows P(None) as dashed, "
-             "'total-punishment' shows only P(Mild)+P(Harsh) as solid (default: mild)"
+             "'total-punishment' shows only P(Mild)+P(Harsh) as solid. "
+             "'all' (requires --utility-mode) shows utilities for all 3 actions (9 lines). (default: mild)"
     )
     parser.add_argument(
         "--log-dir",
@@ -815,4 +864,9 @@ if __name__ == "__main__":
     )
     
     args = parser.parse_args()
+    
+    # Validate that 'all' punishment mode requires utility-mode
+    if args.punishment == 'all' and not args.utility_mode:
+        parser.error("--punishment all requires --utility-mode to be enabled")
+    
     main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment, save_dir=args.save_dir)

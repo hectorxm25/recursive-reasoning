@@ -10,8 +10,6 @@ jax.config.update('jax_platform_name', 'cpu')
 # GRID SETUP FUNCTIONS
 # -----------------------------------------------------------------------------
 
-W_GRID_DEBUG = jnp.linspace(0.0, 1.0, 200) # TODO: THIS GRID SIZE IS HARDCODED
-
 def setup_grids(grid_size):
     """Create the grids for W, B, J based on grid size."""
     W_GRID = jnp.linspace(0.0, 1.0, grid_size)
@@ -22,7 +20,8 @@ def setup_grids(grid_size):
 # Fixed action-related constants
 ACTIONS = jnp.array([0, 1, 2])       # None, Mild, Harsh
 SEVERITY = jnp.array([0.0, 0.5, 1.0])
-COST_TARGET = jnp.array([0.0, -0.5, -1.0])
+# COST_TARGET = jnp.array([0.0, -0.5, -1.0])
+COST_TARGET = jnp.array([0.0, -0.5, -0.8]) # this is for other settings, less cost on harsh
 # COST_SELF = jnp.array([0.0, -0.1, -0.2])
 COST_SELF = jnp.array([0.0, 0.0, 0.0]) # this is for other settings; not focusing on selfishness, see Radkani et al. 
 
@@ -121,13 +120,19 @@ def make_authority_belief_dist(true_w, W_GRID):
 # STRATEGIC PLANNER
 # -----------------------------------------------------------------------------
 
-def make_get_strategic_action_probs(observer_update, get_metrics):
-    """Create a strategic action probs function with the given observer and metrics functions."""
+def make_get_strategic_action_probs(observer_update, get_metrics, W_GRID):
+    """Create a strategic action probs function with the given observer and metrics functions.
+    
+    Args:
+        observer_update: Function to update observer beliefs
+        get_metrics: Function to compute metrics from posterior
+        W_GRID: The W grid from the model context (used for communicative utility)
+    """
     
     def _compute_utility_components(prior_in, prior_out, true_w, true_b, true_j, weights, a_idx):
         """Compute individual utility components for a single action."""
         # Pre-calculate Authority's Ideal Distribution (Q) for Communication
-        q_w_dist = make_authority_belief_dist(true_w, W_GRID_DEBUG)
+        q_w_dist = make_authority_belief_dist(true_w, W_GRID)
         
         # A. Intrinsic Utility
         u_int = compute_naive_utility(a_idx, true_w, true_b, true_j)
@@ -167,7 +172,7 @@ def make_get_strategic_action_probs(observer_update, get_metrics):
     def get_strategic_action_probs(prior_in, prior_out, true_w, true_b, true_j, weights):
         
         # Pre-calculate Authority's Ideal Distribution (Q) for Communication
-        q_w_dist = make_authority_belief_dist(true_w, W_GRID_DEBUG) # TODO: THIS GRID SIZE IS HARDCODED
+        q_w_dist = make_authority_belief_dist(true_w, W_GRID)
         
         def utility_for_action(a_idx):
             # A. Intrinsic Utility
@@ -209,7 +214,7 @@ def make_get_strategic_action_probs(observer_update, get_metrics):
             jsd_out = jsd(p_w_out, q_w_dist)
             
             # Utility is NEGATIVE JSD (minimize distance = maximize utility)
-            u_comm = -1.0 * (jsd_in + jsd_out) # TODO: could add weights here if we care more about one group matching punisher's belief more than, more customizable if needed
+            u_comm = -1.0 * (jsd_in + jsd_out)
             
             # Total Utility
             return (weights['scale_int'] * u_int + 
@@ -322,7 +327,7 @@ class ModelContext:
         self.observer_update = make_observer_update(self.LIKELIHOOD_TENSOR)
         self.get_metrics = make_get_metrics(self.W_GRID, self.B_GRID, self.J_GRID)
         self.get_strategic_action_probs, self.get_utility_components = make_get_strategic_action_probs(
-            self.observer_update, self.get_metrics
+            self.observer_update, self.get_metrics, self.W_GRID
         )
     
     def create_prior_tensor(self, w_params, b_params, j_params):
