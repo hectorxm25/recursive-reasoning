@@ -775,15 +775,15 @@ def run_figure_2_utility(model_ctx, filename="fig2_utility_wrongness_polarizatio
         
         # Row 1: Auth believes WRONG (W=1.0)
         ax1 = axes[0, col]
-        ax1.set_title(f"{agent_type['label']}\nAuthority: W=1.0 (Wrong)", fontsize=10)
-        run_subplot_wrongness_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0, punishment_mode=punishment_mode)
+        ax1.set_title(f"{agent_type['label']}\nAuthority: W=0.8 (Wrong)", fontsize=10)
+        run_subplot_wrongness_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=0.8, punishment_mode=punishment_mode)
         if col == 0:
             ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Auth believes NOT WRONG (W=0.0)
         ax2 = axes[1, col]
-        ax2.set_title(f"Authority: W=0.0 (Not Wrong)", fontsize=10)
-        run_subplot_wrongness_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0, punishment_mode=punishment_mode)
+        ax2.set_title(f"Authority: W=0.2 (Not Wrong)", fontsize=10)
+        run_subplot_wrongness_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.2, punishment_mode=punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
@@ -813,15 +813,15 @@ def run_figure_3_utility(model_ctx, filename="fig3_utility_trust_polarization.pn
         
         # Row 1: Auth believes WRONG (W=1.0)
         ax1 = axes[0, col]
-        ax1.set_title(f"{agent_type['label']}\nAuthority: W=1.0 (Wrong)", fontsize=10)
-        run_subplot_trust_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=1.0, punishment_mode=punishment_mode)
+        ax1.set_title(f"{agent_type['label']}\nAuthority: W=0.8 (Wrong)", fontsize=10)
+        run_subplot_trust_polarization_utility(model_ctx, ax1, agent_type, pol_values, auth_w=0.8, punishment_mode=punishment_mode)
         if col == 0:
             ax1.legend(loc='upper left', fontsize=5 if punishment_mode == 'all' else 6)
         
         # Row 2: Auth believes NOT WRONG (W=0.0)
         ax2 = axes[1, col]
-        ax2.set_title(f"Authority: W=0.0 (Not Wrong)", fontsize=10)
-        run_subplot_trust_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.0, punishment_mode=punishment_mode)
+        ax2.set_title(f"Authority: W=0.2 (Not Wrong)", fontsize=10)
+        run_subplot_trust_polarization_utility(model_ctx, ax2, agent_type, pol_values, auth_w=0.2, punishment_mode=punishment_mode)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)

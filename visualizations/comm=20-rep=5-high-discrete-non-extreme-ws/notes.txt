@@ -1,0 +1,1 @@
+400 grid size; normal u-target; figures 2 and 3 have non extreme wrongness
