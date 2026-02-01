@@ -1,0 +1,11 @@
+This exp. has extreme w's for fig2/3 (1 for right and 0 for wrong)
+
+C-target is [0, -0.5, -1.0]
+
+Using w_comm=50 since w-1 is bounded to 1 and JSD wasn't, so I'm scaling it a bit more. 
+
+Still using w_rep = 5 and the individual components =2
+
+Still uses a 400-sized grid
+
+No self-cost for punisher. 
