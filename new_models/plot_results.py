@@ -972,11 +972,171 @@ def run_figure_belief_update(model_ctx, filename="fig_belief_update.png"):
     plt.close(fig)
     logger.info(f"Belief Update Figure saved to {filename} in {time.time() - figure_start:.2f}s")
 
+
+# -----------------------------------------------------------------------------
+# JSD FIGURE FUNCTIONS
+# -----------------------------------------------------------------------------
+
+def compute_jsd(p, q):
+    """Compute Jensen-Shannon Divergence between two distributions p and q."""
+    # Ensure distributions are normalized
+    p = p / (np.sum(p) + 1e-10)
+    q = q / (np.sum(q) + 1e-10)
+    
+    m = 0.5 * (p + q)
+    
+    # KL(P || M) with numerical stability
+    kl_pm = np.sum(p * np.log((p + 1e-10) / (m + 1e-10)))
+    # KL(Q || M)
+    kl_qm = np.sum(q * np.log((q + 1e-10) / (m + 1e-10)))
+    
+    return 0.5 * kl_pm + 0.5 * kl_qm
+
+
+def make_authority_belief_dist_numpy(true_w, W_GRID):
+    """
+    Constructs a sharp probability distribution Q centered on the authority's
+    true_w scalar. NumPy version for plotting.
+    """
+    from scipy.stats import beta as scipy_beta
+    
+    concentration = 100.0
+    w_safe = np.clip(true_w, 0.001, 0.999)
+    
+    alpha = w_safe * concentration + 1.0
+    beta_param = (1.0 - w_safe) * concentration + 1.0
+    
+    dist = scipy_beta.pdf(W_GRID, alpha, beta_param)
+    return dist / (np.sum(dist) + 1e-10)
+
+
+def run_subplot_jsd_vs_authority_belief(model_ctx, ax, agent_type, group_type, w_values):
+    """
+    Subplot: JSD between group's posterior P(W) and authority's belief vs authority's W.
+    
+    Args:
+        model_ctx: The model context
+        ax: The matplotlib axis
+        agent_type: Dict with 'j', 'b', 'label' keys
+        group_type: 'in' for in-group (high-W prior), 'out' for out-group (low-W prior)
+        w_values: Array of authority wrongness beliefs to sweep over
+    """
+    # Polarized wrongness, uncertain motives priors
+    p_j_unc = (1.0, 1.0)
+    p_b_unc = (1.0, 1.0)
+    p_in_w = get_beta_params(0.9, 20)  # In-group: high W prior
+    p_out_w = get_beta_params(0.1, 20)  # Out-group: low W prior
+    
+    # Create prior tensors
+    priors_in = (p_in_w, p_b_unc, p_j_unc)
+    priors_out = (p_out_w, p_b_unc, p_j_unc)
+    
+    prior_tensor_in = model_ctx.create_prior_tensor(*priors_in)
+    prior_tensor_out = model_ctx.create_prior_tensor(*priors_out)
+    
+    # Select which group to analyze
+    if group_type == 'in':
+        prior_tensor = prior_tensor_in
+    else:
+        prior_tensor = prior_tensor_out
+    
+    # Get the W grid
+    W_GRID = np.array(model_ctx.W_GRID)
+    
+    action_names = {0: 'None', 1: 'Mild', 2: 'Harsh'}
+    action_styles = {0: ':', 1: '--', 2: '-'}  # None: dotted, Mild: dashed, Harsh: solid
+    
+    # For each action, compute JSD at each authority W value
+    for action_idx in [0, 1, 2]:
+        jsd_values = []
+        
+        # Compute posterior after observing this action
+        posterior_tensor = model_ctx.observer_update(prior_tensor, action_idx)
+        posterior_w = np.array(jnp.sum(posterior_tensor, axis=(1, 2)))
+        
+        for auth_w in w_values:
+            # Get authority's belief distribution (delta-like centered at auth_w)
+            authority_dist = make_authority_belief_dist_numpy(auth_w, W_GRID)
+            
+            # Compute JSD between posterior and authority belief
+            jsd_val = compute_jsd(posterior_w, authority_dist)
+            jsd_values.append(jsd_val)
+        
+        if group_type == 'in':
+            color = 'blue'
+        elif group_type == 'out':
+            color = 'red'
+            
+        ax.plot(w_values, jsd_values, color=color, linestyle=action_styles[action_idx],
+                linewidth=2, label=f"After {action_names[action_idx]}")
+    
+    ax.set_xlabel("Authority's Belief (W)")
+    ax.set_ylabel("JSD(Posterior, Authority)")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(bottom=0)
+
+
+def run_figure_jsd(model_ctx, filename="fig_jsd.png"):
+    """
+    Figure: JSD Visualization
+    
+    Row 1: JSD between in-group posterior and authority belief vs authority W
+           (3 blue lines: None, Mild, Harsh actions)
+    Row 2: JSD between out-group posterior and authority belief vs authority W
+           (3 blue lines: None, Mild, Harsh actions)
+    Row 3: Belief update P(W) after observing None action
+    Row 4: Belief update P(W) after observing Mild action  
+    Row 5: Belief update P(W) after observing Harsh action
+    
+    Columns: 4 agent types (High J Anti-B, High J Pro-B, Low J Anti-B, Low J Pro-B)
+    """
+    figure_start = time.time()
+    logger.info("=" * 60)
+    logger.info("Starting JSD Figure")
+    
+    fig, axes = plt.subplots(5, 4, figsize=(20, 25))
+    fig.suptitle("JSD Analysis: Posterior vs Authority Belief\n(Polarized Wrongness, Uncertain Motives)", 
+                 fontsize=16, fontweight='bold')
+    
+    w_values = np.linspace(0.0, 1.0, 100)
+    action_names = {0: 'None', 1: 'Mild', 2: 'Harsh'}
+    
+    for col, agent_type in enumerate(AGENT_TYPES):
+        logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
+        
+        # Row 1: JSD for in-group (high-W prior)
+        ax1 = axes[0, col]
+        ax1.set_title(f"{agent_type['label']}\nIn-Group JSD (High-W Prior)", fontsize=10)
+        run_subplot_jsd_vs_authority_belief(model_ctx, ax1, agent_type, 'in', w_values)
+        if col == 0:
+            ax1.legend(loc='upper right', fontsize=8)
+        
+        # Row 2: JSD for out-group (low-W prior)
+        ax2 = axes[1, col]
+        ax2.set_title(f"Out-Group JSD (Low-W Prior)", fontsize=10)
+        run_subplot_jsd_vs_authority_belief(model_ctx, ax2, agent_type, 'out', w_values)
+        if col == 0:
+            ax2.legend(loc='upper right', fontsize=8)
+        
+        # Rows 3-5: Belief updates for each action
+        for row, action_idx in enumerate([0, 1, 2], start=2):
+            ax = axes[row, col]
+            ax.set_title(f"Belief Update After {action_names[action_idx]} Action", fontsize=10)
+            run_subplot_belief_update(model_ctx, ax, agent_type, action_idx, 'both')
+            if col == 0:
+                ax.legend(loc='upper right', fontsize=7)
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.95)
+    plt.savefig(filename, dpi=150)
+    plt.close(fig)
+    logger.info(f"JSD Figure saved to {filename} in {time.time() - figure_start:.2f}s")
+
 # -----------------------------------------------------------------------------
 # MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
 
-def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None, belief_update=False):
+def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None, belief_update=False, jsd_mode=False):
     """Run all figure simulations with logging.
     
     Args:
@@ -987,6 +1147,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
             For utility plots with 'all': shows 9 lines (all 3 actions)
         save_dir: Optional directory to save figures. If None, saves to current directory.
         belief_update: If True, generate belief update visualization figure.
+        jsd_mode: If True, generate JSD analysis figure.
     """
     global logger
     logger = setup_logging(log_dir=log_dir)
@@ -995,7 +1156,8 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     logger.info("=" * 60)
     logger.info("SIMULATION RUN STARTED")
     logger.info(f"Device: {jax.devices()[0].platform} ({jax.devices()})")
-    logger.info(f"Mode: {'BELIEF UPDATE' if belief_update else ('UTILITY' if utility_mode else 'PROBABILITY')}")
+    mode_str = 'JSD' if jsd_mode else ('BELIEF UPDATE' if belief_update else ('UTILITY' if utility_mode else 'PROBABILITY'))
+    logger.info(f"Mode: {mode_str}")
     logger.info(f"Punishment Mode: {punishment_mode}")
     if save_dir:
         logger.info(f"Save Directory: {save_dir}")
@@ -1014,7 +1176,12 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
             return os.path.join(save_dir, fname)
         return fname
 
-    if belief_update:
+    if jsd_mode:
+        # Generate only the JSD analysis figure
+        logger.info("Running JSD figure simulation...")
+        logger.info("[Figure 1/1] (JSD Mode)")
+        run_figure_jsd(model_ctx, get_save_path("fig_jsd.png"))
+    elif belief_update:
         # Generate only the belief update figure
         logger.info("Running belief update figure simulation...")
         logger.info("[Figure 1/1] (Belief Update Mode)")
@@ -1074,6 +1241,16 @@ if __name__ == "__main__":
              "Rows 2-4 show prior/posterior P(W) for None/Mild/Harsh actions."
     )
     parser.add_argument(
+        "--jsd",
+        action="store_true",
+        default=False,
+        help="Generate JSD analysis figure showing how Jensen-Shannon Divergence between "
+             "observer posteriors and authority belief changes across different actions. "
+             "Creates a 5-row figure: Row 1 shows JSD for in-group (high-W prior), "
+             "Row 2 shows JSD for out-group (low-W prior), "
+             "Rows 3-5 show prior/posterior P(W) for None/Mild/Harsh actions."
+    )
+    parser.add_argument(
         "--punishment",
         type=str,
         choices=['mild', 'none', 'total-punishment', 'all'],
@@ -1101,9 +1278,10 @@ if __name__ == "__main__":
     if args.punishment == 'all' and not args.utility_mode:
         parser.error("--punishment all requires --utility-mode to be enabled")
     
-    # Validate that belief-update is mutually exclusive with utility-mode
-    if args.belief_update and args.utility_mode:
-        parser.error("--belief-update and --utility-mode are mutually exclusive")
+    # Validate mutually exclusive modes
+    special_modes = sum([args.belief_update, args.utility_mode, args.jsd])
+    if special_modes > 1:
+        parser.error("--belief-update, --utility-mode, and --jsd are mutually exclusive")
     
     main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment, 
-         save_dir=args.save_dir, belief_update=args.belief_update)
+         save_dir=args.save_dir, belief_update=args.belief_update, jsd_mode=args.jsd)
