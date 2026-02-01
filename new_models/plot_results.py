@@ -158,7 +158,7 @@ def get_agent_weights(agent_type):
         weights['w_B_in_neu'] = val
         weights['w_B_out_neu'] = val
     elif agent_type == 'communicative':
-        weights['scale_comm'] = 20.0 
+        weights['scale_comm'] = 50.0 
         
     return weights
 
@@ -974,45 +974,36 @@ def run_figure_belief_update(model_ctx, filename="fig_belief_update.png"):
 
 
 # -----------------------------------------------------------------------------
-# JSD FIGURE FUNCTIONS
+# WASSERSTEIN-1 FIGURE FUNCTIONS
 # -----------------------------------------------------------------------------
 
-def compute_jsd(p, q):
-    """Compute Jensen-Shannon Divergence between two distributions p and q."""
-    # Ensure distributions are normalized
-    p = p / (np.sum(p) + 1e-10)
-    q = q / (np.sum(q) + 1e-10)
-    
-    m = 0.5 * (p + q)
-    
-    # KL(P || M) with numerical stability
-    kl_pm = np.sum(p * np.log((p + 1e-10) / (m + 1e-10)))
-    # KL(Q || M)
-    kl_qm = np.sum(q * np.log((q + 1e-10) / (m + 1e-10)))
-    
-    return 0.5 * kl_pm + 0.5 * kl_qm
-
-
-def make_authority_belief_dist_numpy(true_w, W_GRID):
+def compute_wasserstein1_point_mass(p_w, w_true, W_GRID):
     """
-    Constructs a sharp probability distribution Q centered on the authority's
-    true_w scalar. NumPy version for plotting.
+    Compute the Wasserstein-1 distance between a discrete distribution p_w
+    and a point mass at w_true.
+    
+    For a point mass, W_1(P, delta_{w_true}) = E_P[|W - w_true|]
+    = sum_i p(w_i) * |w_i - w_true|
+    
+    Args:
+        p_w: Probability distribution over W_GRID (should sum to 1)
+        w_true: Authority's true wrongness belief (scalar)
+        W_GRID: The grid of W values
+    
+    Returns:
+        The Wasserstein-1 distance (scalar)
     """
-    from scipy.stats import beta as scipy_beta
-    
-    concentration = 100.0
-    w_safe = np.clip(true_w, 0.001, 0.999)
-    
-    alpha = w_safe * concentration + 1.0
-    beta_param = (1.0 - w_safe) * concentration + 1.0
-    
-    dist = scipy_beta.pdf(W_GRID, alpha, beta_param)
-    return dist / (np.sum(dist) + 1e-10)
+    # Ensure distribution is normalized
+    p_w = p_w / (np.sum(p_w) + 1e-10)
+    # Compute absolute distances from the point mass
+    abs_distances = np.abs(W_GRID - w_true)
+    # Expected absolute distance under distribution p_w
+    return np.sum(p_w * abs_distances)
 
 
-def run_subplot_jsd_vs_authority_belief(model_ctx, ax, agent_type, group_type, w_values):
+def run_subplot_w1_vs_authority_belief(model_ctx, ax, agent_type, group_type, w_values):
     """
-    Subplot: JSD between group's posterior P(W) and authority's belief vs authority's W.
+    Subplot: W-1 distance between group's posterior P(W) and authority's belief vs authority's W.
     
     Args:
         model_ctx: The model context
@@ -1046,44 +1037,41 @@ def run_subplot_jsd_vs_authority_belief(model_ctx, ax, agent_type, group_type, w
     action_names = {0: 'None', 1: 'Mild', 2: 'Harsh'}
     action_styles = {0: ':', 1: '--', 2: '-'}  # None: dotted, Mild: dashed, Harsh: solid
     
-    # For each action, compute JSD at each authority W value
+    # For each action, compute W-1 at each authority W value
     for action_idx in [0, 1, 2]:
-        jsd_values = []
+        w1_values = []
         
         # Compute posterior after observing this action
         posterior_tensor = model_ctx.observer_update(prior_tensor, action_idx)
         posterior_w = np.array(jnp.sum(posterior_tensor, axis=(1, 2)))
         
         for auth_w in w_values:
-            # Get authority's belief distribution (delta-like centered at auth_w)
-            authority_dist = make_authority_belief_dist_numpy(auth_w, W_GRID)
-            
-            # Compute JSD between posterior and authority belief
-            jsd_val = compute_jsd(posterior_w, authority_dist)
-            jsd_values.append(jsd_val)
+            # Compute W-1 between posterior and authority's point belief
+            w1_val = compute_wasserstein1_point_mass(posterior_w, auth_w, W_GRID)
+            w1_values.append(w1_val)
         
         if group_type == 'in':
             color = 'blue'
         elif group_type == 'out':
             color = 'red'
             
-        ax.plot(w_values, jsd_values, color=color, linestyle=action_styles[action_idx],
+        ax.plot(w_values, w1_values, color=color, linestyle=action_styles[action_idx],
                 linewidth=2, label=f"After {action_names[action_idx]}")
     
     ax.set_xlabel("Authority's Belief (W)")
-    ax.set_ylabel("JSD(Posterior, Authority)")
+    ax.set_ylabel("W-1(Posterior, Authority)")
     ax.set_xlim(0, 1)
     ax.set_ylim(bottom=0)
 
 
-def run_figure_jsd(model_ctx, filename="fig_jsd.png"):
+def run_figure_w1(model_ctx, filename="fig_w1.png"):
     """
-    Figure: JSD Visualization
+    Figure: Wasserstein-1 Distance Visualization
     
-    Row 1: JSD between in-group posterior and authority belief vs authority W
+    Row 1: W-1 between in-group posterior and authority belief vs authority W
            (3 blue lines: None, Mild, Harsh actions)
-    Row 2: JSD between out-group posterior and authority belief vs authority W
-           (3 blue lines: None, Mild, Harsh actions)
+    Row 2: W-1 between out-group posterior and authority belief vs authority W
+           (3 red lines: None, Mild, Harsh actions)
     Row 3: Belief update P(W) after observing None action
     Row 4: Belief update P(W) after observing Mild action  
     Row 5: Belief update P(W) after observing Harsh action
@@ -1092,10 +1080,10 @@ def run_figure_jsd(model_ctx, filename="fig_jsd.png"):
     """
     figure_start = time.time()
     logger.info("=" * 60)
-    logger.info("Starting JSD Figure")
+    logger.info("Starting W-1 Figure")
     
     fig, axes = plt.subplots(5, 4, figsize=(20, 25))
-    fig.suptitle("JSD Analysis: Posterior vs Authority Belief\n(Polarized Wrongness, Uncertain Motives)", 
+    fig.suptitle("Wasserstein-1 Analysis: Posterior vs Authority Belief\n(Polarized Wrongness, Uncertain Motives)", 
                  fontsize=16, fontweight='bold')
     
     w_values = np.linspace(0.0, 1.0, 100)
@@ -1104,17 +1092,17 @@ def run_figure_jsd(model_ctx, filename="fig_jsd.png"):
     for col, agent_type in enumerate(AGENT_TYPES):
         logger.info(f"  Processing column {col+1}/4: {agent_type['label']}")
         
-        # Row 1: JSD for in-group (high-W prior)
+        # Row 1: W-1 for in-group (high-W prior)
         ax1 = axes[0, col]
-        ax1.set_title(f"{agent_type['label']}\nIn-Group JSD (High-W Prior)", fontsize=10)
-        run_subplot_jsd_vs_authority_belief(model_ctx, ax1, agent_type, 'in', w_values)
+        ax1.set_title(f"{agent_type['label']}\nIn-Group W-1 (High-W Prior)", fontsize=10)
+        run_subplot_w1_vs_authority_belief(model_ctx, ax1, agent_type, 'in', w_values)
         if col == 0:
             ax1.legend(loc='upper right', fontsize=8)
         
-        # Row 2: JSD for out-group (low-W prior)
+        # Row 2: W-1 for out-group (low-W prior)
         ax2 = axes[1, col]
-        ax2.set_title(f"Out-Group JSD (Low-W Prior)", fontsize=10)
-        run_subplot_jsd_vs_authority_belief(model_ctx, ax2, agent_type, 'out', w_values)
+        ax2.set_title(f"Out-Group W-1 (Low-W Prior)", fontsize=10)
+        run_subplot_w1_vs_authority_belief(model_ctx, ax2, agent_type, 'out', w_values)
         if col == 0:
             ax2.legend(loc='upper right', fontsize=8)
         
@@ -1130,13 +1118,13 @@ def run_figure_jsd(model_ctx, filename="fig_jsd.png"):
     plt.subplots_adjust(top=0.95)
     plt.savefig(filename, dpi=150)
     plt.close(fig)
-    logger.info(f"JSD Figure saved to {filename} in {time.time() - figure_start:.2f}s")
+    logger.info(f"W-1 Figure saved to {filename} in {time.time() - figure_start:.2f}s")
 
 # -----------------------------------------------------------------------------
 # MAIN ENTRY POINT
 # -----------------------------------------------------------------------------
 
-def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None, belief_update=False, jsd_mode=False):
+def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=None, belief_update=False, w1_mode=False):
     """Run all figure simulations with logging.
     
     Args:
@@ -1147,7 +1135,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
             For utility plots with 'all': shows 9 lines (all 3 actions)
         save_dir: Optional directory to save figures. If None, saves to current directory.
         belief_update: If True, generate belief update visualization figure.
-        jsd_mode: If True, generate JSD analysis figure.
+        w1_mode: If True, generate Wasserstein-1 analysis figure.
     """
     global logger
     logger = setup_logging(log_dir=log_dir)
@@ -1156,7 +1144,7 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
     logger.info("=" * 60)
     logger.info("SIMULATION RUN STARTED")
     logger.info(f"Device: {jax.devices()[0].platform} ({jax.devices()})")
-    mode_str = 'JSD' if jsd_mode else ('BELIEF UPDATE' if belief_update else ('UTILITY' if utility_mode else 'PROBABILITY'))
+    mode_str = 'W-1' if w1_mode else ('BELIEF UPDATE' if belief_update else ('UTILITY' if utility_mode else 'PROBABILITY'))
     logger.info(f"Mode: {mode_str}")
     logger.info(f"Punishment Mode: {punishment_mode}")
     if save_dir:
@@ -1176,11 +1164,11 @@ def main(log_dir="logs", utility_mode=False, punishment_mode='mild', save_dir=No
             return os.path.join(save_dir, fname)
         return fname
 
-    if jsd_mode:
-        # Generate only the JSD analysis figure
-        logger.info("Running JSD figure simulation...")
-        logger.info("[Figure 1/1] (JSD Mode)")
-        run_figure_jsd(model_ctx, get_save_path("fig_jsd.png"))
+    if w1_mode:
+        # Generate only the Wasserstein-1 analysis figure
+        logger.info("Running W-1 figure simulation...")
+        logger.info("[Figure 1/1] (W-1 Mode)")
+        run_figure_w1(model_ctx, get_save_path("fig_w1.png"))
     elif belief_update:
         # Generate only the belief update figure
         logger.info("Running belief update figure simulation...")
@@ -1241,13 +1229,13 @@ if __name__ == "__main__":
              "Rows 2-4 show prior/posterior P(W) for None/Mild/Harsh actions."
     )
     parser.add_argument(
-        "--jsd",
+        "--w1",
         action="store_true",
         default=False,
-        help="Generate JSD analysis figure showing how Jensen-Shannon Divergence between "
-             "observer posteriors and authority belief changes across different actions. "
-             "Creates a 5-row figure: Row 1 shows JSD for in-group (high-W prior), "
-             "Row 2 shows JSD for out-group (low-W prior), "
+        help="Generate Wasserstein-1 analysis figure showing how W-1 distance between "
+             "observer posteriors and authority's point belief changes across different actions. "
+             "Creates a 5-row figure: Row 1 shows W-1 for in-group (high-W prior), "
+             "Row 2 shows W-1 for out-group (low-W prior), "
              "Rows 3-5 show prior/posterior P(W) for None/Mild/Harsh actions."
     )
     parser.add_argument(
@@ -1279,9 +1267,9 @@ if __name__ == "__main__":
         parser.error("--punishment all requires --utility-mode to be enabled")
     
     # Validate mutually exclusive modes
-    special_modes = sum([args.belief_update, args.utility_mode, args.jsd])
+    special_modes = sum([args.belief_update, args.utility_mode, args.w1])
     if special_modes > 1:
-        parser.error("--belief-update, --utility-mode, and --jsd are mutually exclusive")
+        parser.error("--belief-update, --utility-mode, and --w1 are mutually exclusive")
     
     main(log_dir=args.log_dir, utility_mode=args.utility_mode, punishment_mode=args.punishment, 
-         save_dir=args.save_dir, belief_update=args.belief_update, jsd_mode=args.jsd)
+         save_dir=args.save_dir, belief_update=args.belief_update, w1_mode=args.w1)

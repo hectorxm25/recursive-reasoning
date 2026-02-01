@@ -20,8 +20,8 @@ def setup_grids(grid_size):
 # Fixed action-related constants
 ACTIONS = jnp.array([0, 1, 2])       # None, Mild, Harsh
 SEVERITY = jnp.array([0.0, 0.5, 1.0])
-COST_TARGET = jnp.array([0.0, -0.5, -1.0])
-# COST_TARGET = jnp.array([0.0, -0.5, -0.8]) # this is for other settings, less cost on harsh
+# COST_TARGET = jnp.array([0.0, -0.5, -1.0])
+COST_TARGET = jnp.array([0.0, -0.5, -0.8]) # this is for other settings, less cost on harsh
 # COST_SELF = jnp.array([0.0, -0.1, -0.2])
 COST_SELF = jnp.array([0.0, 0.0, 0.0]) # this is for other settings; not focusing on selfishness, see Radkani et al. 
 
@@ -94,27 +94,26 @@ def make_get_metrics(W_GRID, B_GRID, J_GRID):
 # COMMUNICATIVE UTILITY HELPER
 # -----------------------------------------------------------------------------
 
-def make_authority_belief_dist(true_w, W_GRID):
+def compute_wasserstein1_point_mass(p_w, w_true, W_GRID):
     """
-    Constructs a sharp probability distribution Q centered on the authority's
-    true_w scalar. This allows us to compute KL(P || Q).
+    Compute the Wasserstein-1 distance between a discrete distribution p_w
+    and a point mass at w_true.
+    
+    For a point mass, W_1(P, delta_{w_true}) = E_P[|W - w_true|]
+    = sum_i p(w_i) * |w_i - w_true|
+    
+    Args:
+        p_w: Probability distribution over W_GRID (should sum to 1)
+        w_true: Authority's true wrongness belief (scalar)
+        W_GRID: The grid of W values
+    
+    Returns:
+        The Wasserstein-1 distance (scalar)
     """
-    # sharp peak on true_w to convert to beta distribution
-    concentration = 100.0 
-
-    # clip true_w to avoid bounding errors
-    w_safe = jnp.clip(true_w, 0.001, 0.999)
-
-    # convert to alpha, beta parameters
-    # 1.0 to ensure alpha, beta >= 1.0 for stability
-    alpha = w_safe * concentration + 1.0
-    beta_param = (1.0 - w_safe) * concentration + 1.0
-    
-    # Calculate PDF over the grid
-    dist = beta.pdf(W_GRID, alpha, beta_param)
-    
-    # normalize to sum to 1.0
-    return dist / (jnp.sum(dist) + 1e-10)
+    # Compute absolute distances from the point mass
+    abs_distances = jnp.abs(W_GRID - w_true)
+    # Expected absolute distance under distribution p_w
+    return jnp.sum(p_w * abs_distances)
 
 # -----------------------------------------------------------------------------
 # STRATEGIC PLANNER
@@ -131,9 +130,6 @@ def make_get_strategic_action_probs(observer_update, get_metrics, W_GRID):
     
     def _compute_utility_components(prior_in, prior_out, true_w, true_b, true_j, weights, a_idx):
         """Compute individual utility components for a single action."""
-        # Pre-calculate Authority's Ideal Distribution (Q) for Communication
-        q_w_dist = make_authority_belief_dist(true_w, W_GRID)
-        
         # A. Intrinsic Utility
         u_int = compute_naive_utility(a_idx, true_w, true_b, true_j)
         
@@ -150,29 +146,22 @@ def make_get_strategic_action_probs(observer_update, get_metrics, W_GRID):
             weights['w_B_in_neu'] * jnp.abs(metrics_in['e_b']) - weights['w_B_out_neu'] * jnp.abs(metrics_out['e_b'])
         )
         
-        # C. Communicative Utility (Jensen-Shannon Divergence)
+        # C. Communicative Utility (Wasserstein-1 Distance)
+        # Minimize W_1(P, delta_{w_true}) where P is Audience Belief, w_true is Authority's point belief
+        # W_1 is the expected absolute distance from the authority's belief
         p_w_in = jnp.sum(post_in, axis=(1, 2))
         p_w_out = jnp.sum(post_out, axis=(1, 2))
         
-        def jsd(p, q):
-            m = 0.5 * (p + q)
-            kl_pm = jnp.sum(p * jnp.log((p + 1e-10) / (m + 1e-10)))
-            kl_qm = jnp.sum(q * jnp.log((q + 1e-10) / (m + 1e-10)))
-            return 0.5 * kl_pm + 0.5 * kl_qm
+        w1_in = compute_wasserstein1_point_mass(p_w_in, true_w, W_GRID)
+        w1_out = compute_wasserstein1_point_mass(p_w_out, true_w, W_GRID)
         
-        jsd_in = jsd(p_w_in, q_w_dist)
-        jsd_out = jsd(p_w_out, q_w_dist)
-        
-        # Utility is NEGATIVE JSD (minimize distance = maximize utility)
-        u_comm = -1.0 * (jsd_in + jsd_out)
+        # Utility is NEGATIVE W-1 (minimize distance = maximize utility)
+        u_comm = -1.0 * (w1_in + w1_out)
         
         return u_int, u_rep, u_comm
     
     @jax.jit
     def get_strategic_action_probs(prior_in, prior_out, true_w, true_b, true_j, weights):
-        
-        # Pre-calculate Authority's Ideal Distribution (Q) for Communication
-        q_w_dist = make_authority_belief_dist(true_w, W_GRID)
         
         def utility_for_action(a_idx):
             # A. Intrinsic Utility
@@ -192,29 +181,21 @@ def make_get_strategic_action_probs(observer_update, get_metrics, W_GRID):
                 weights['w_B_in_neu'] * jnp.abs(metrics_in['e_b']) - weights['w_B_out_neu'] * jnp.abs(metrics_out['e_b']) # Be seen as Neutral
             )
             
-            # C. Communicative Utility (Jensen-Shannon Divergence)
-            # Minimize JSD(P || Q) where P is Audience Belief, Q is Authority Belief
-            # JSD is symmetric and bounded [0, 1], more stable than KL divergence
+            # C. Communicative Utility (Wasserstein-1 Distance)
+            # Minimize W_1(P, delta_{w_true}) where P is Audience Belief, w_true is Authority's point belief
+            # W_1(P, delta_{w_true}) = E_P[|W - w_true|] - the expected absolute distance
             
             # Step 1: Marginalize Audience Posterior to get their W-belief (P)
             # post_in has shape (W, B, J). Sum over axis 1 (B) and 2 (J) to get W.
             p_w_in = jnp.sum(post_in, axis=(1, 2))
             p_w_out = jnp.sum(post_out, axis=(1, 2))
             
-            # Step 2: Compute JSD(P || Q) = 0.5 * KL(P || M) + 0.5 * KL(Q || M)
-            # where M = 0.5 * (P + Q) is the mixture distribution
-            # We add 1e-10 to avoid division by zero or log(0)
-            def jsd(p, q):
-                m = 0.5 * (p + q)
-                kl_pm = jnp.sum(p * jnp.log((p + 1e-10) / (m + 1e-10)))
-                kl_qm = jnp.sum(q * jnp.log((q + 1e-10) / (m + 1e-10)))
-                return 0.5 * kl_pm + 0.5 * kl_qm
+            # Step 2: Compute W_1(P, delta_{w_true}) = sum_i p(w_i) * |w_i - w_true|
+            w1_in = compute_wasserstein1_point_mass(p_w_in, true_w, W_GRID)
+            w1_out = compute_wasserstein1_point_mass(p_w_out, true_w, W_GRID)
             
-            jsd_in = jsd(p_w_in, q_w_dist)
-            jsd_out = jsd(p_w_out, q_w_dist)
-            
-            # Utility is NEGATIVE JSD (minimize distance = maximize utility)
-            u_comm = -1.0 * (jsd_in + jsd_out)
+            # Utility is NEGATIVE W-1 (minimize distance = maximize utility)
+            u_comm = -1.0 * (w1_in + w1_out)
             
             # Total Utility
             return (weights['scale_int'] * u_int + 
