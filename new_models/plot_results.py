@@ -1151,17 +1151,27 @@ def run_figure_w1(model_ctx, filename="fig_w1.png"):
 # Reordered agent types for final plots: High J Anti-B, Low J Anti-B, High J Pro-B, Low J Pro-B
 FINAL_AGENT_ORDER = [0, 2, 1, 3]  # Indices into AGENT_TYPES
 
-# Style constants for final plots
+# Style constants for final plots - MODIFY THESE TO ADJUST FONT SIZES
 FINAL_LINEWIDTH = 3
 FINAL_INSET_LINEWIDTH = 2
-FINAL_TITLE_FONTSIZE = 14
-FINAL_LABEL_FONTSIZE = 13
-FINAL_TICK_FONTSIZE = 11
-FINAL_LEGEND_FONTSIZE = 11
-FINAL_INSET_TICK_FONTSIZE = 9
+FINAL_TITLE_FONTSIZE = 16          # Title font size
+FINAL_LABEL_FONTSIZE = 15          # Axis label font size
+FINAL_TICK_FONTSIZE = 13           # Tick label font size
+FINAL_LEGEND_FONTSIZE = 13         # Legend font size
+FINAL_INSET_TICK_FONTSIZE = 11     # Inset tick font size
+FINAL_SUBPLOT_LABEL_FONTSIZE = 18  # Subplot label (A, B, C...) font size
+FINAL_SUPTITLE_FONTSIZE = 20       # Figure suptitle font size
+
+# Multiplier for Figure 2 Alternative (1.25x larger fonts)
+FIG2_ALT_FONT_MULTIPLIER = 1.25
 
 # Color for naive agent in final plots (dark grey instead of green)
 NAIVE_COLOR = '#404040'  # Dark grey
+
+# Line styles for utility plots
+LINESTYLE_HARSH = '-'       # Solid
+LINESTYLE_MILD = ':'        # Dotted
+LINESTYLE_NONE = '-.'       # Dash-dot
 
 
 def run_subplot_polarized_wrongness_final(model_ctx, ax, agent_type, w_values, show_ylabel=True):
@@ -1215,6 +1225,7 @@ def run_subplot_wrongness_polarization_utility_final(model_ctx, ax, agent_type, 
     """
     Subplot: Wrongness Polarization Utility - only reputational agent, all 3 actions.
     Shows utility for None, Mild, and Harsh actions.
+    Uses consistent line styles: Harsh=solid, Mild=dotted, None=dash-dot.
     """
     true_j, true_b = agent_type['j'], agent_type['b']
     p_motives = ((1.0, 1.0), (1.0, 1.0), (1.0, 1.0))
@@ -1235,9 +1246,9 @@ def run_subplot_wrongness_polarization_utility_final(model_ctx, ax, agent_type, 
         y_mild.append(utils_rep[1]['u_rep'])
         y_none.append(utils_rep[0]['u_rep'])
     
-    ax.plot(pol_values, y_harsh, color='blue', linestyle='-', linewidth=FINAL_LINEWIDTH, label='Harsh')
-    ax.plot(pol_values, y_mild, color='blue', linestyle='--', linewidth=FINAL_LINEWIDTH, label='Mild')
-    ax.plot(pol_values, y_none, color='blue', linestyle=':', linewidth=FINAL_LINEWIDTH, label='None')
+    ax.plot(pol_values, y_harsh, color='blue', linestyle=LINESTYLE_HARSH, linewidth=FINAL_LINEWIDTH, label='Harsh')
+    ax.plot(pol_values, y_mild, color='blue', linestyle=LINESTYLE_MILD, linewidth=FINAL_LINEWIDTH, label='Mild')
+    ax.plot(pol_values, y_none, color='blue', linestyle=LINESTYLE_NONE, linewidth=FINAL_LINEWIDTH, label='None')
     
     ax.set_xlabel("Polarization Level", fontsize=FINAL_LABEL_FONTSIZE)
     if show_ylabel:
@@ -1305,13 +1316,14 @@ def run_subplot_polarized_motives_final(model_ctx, ax, agent_type, w_values, sho
     ax.tick_params(axis='both', which='major', labelsize=FINAL_TICK_FONTSIZE)
 
 
-def run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, show_total=True, show_ylabel=True):
+def run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, show_total=True, show_ylabel=True, font_mult=1.0):
     """
     Subplot: Polarized Motives, Uncertain Wrongness - reputational and naive agents.
     Version 2 for Figure 2 Alternative.
     
     Args:
-        show_total: If True, show P(Punishment) dashed. If False, show P(Harsh) solid and P(None) dotted.
+        show_total: If True, show P(Punishment) dashed. If False, show P(Harsh) solid and P(Mild) dotted.
+        font_mult: Font size multiplier (default 1.0).
     """
     true_j, true_b = agent_type['j'], agent_type['b']
     
@@ -1327,51 +1339,55 @@ def run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, 
     
     # Reputational agent (blue)
     weights_rep = get_agent_weights('reputation')
-    y_total_rep, y_harsh_rep, y_none_rep = [], [], []
+    y_total_rep, y_harsh_rep, y_mild_rep = [], [], []
     
     # Naive agent (dark grey)
     weights_naive = get_agent_weights('naive')
-    y_total_naive, y_harsh_naive, y_none_naive = [], [], []
+    y_total_naive, y_harsh_naive, y_mild_naive = [], [], []
     
     for w in w_values:
         probs_rep = get_action_probs(model_ctx, priors_in, priors_out, w, true_b, true_j, weights_rep)
         y_total_rep.append(probs_rep[1] + probs_rep[2])
         y_harsh_rep.append(probs_rep[2])
-        y_none_rep.append(probs_rep[0])
+        y_mild_rep.append(probs_rep[1])
         
         probs_naive = get_action_probs(model_ctx, priors_in, priors_out, w, true_b, true_j, weights_naive)
         y_total_naive.append(probs_naive[1] + probs_naive[2])
         y_harsh_naive.append(probs_naive[2])
-        y_none_naive.append(probs_naive[0])
+        y_mild_naive.append(probs_naive[1])
+    
+    label_fs = int(FINAL_LABEL_FONTSIZE * font_mult)
+    tick_fs = int(FINAL_TICK_FONTSIZE * font_mult)
     
     if show_total:
         # P(Punishment) dashed
         ax.plot(w_values, y_total_rep, color='blue', linestyle='--', linewidth=FINAL_LINEWIDTH, label='Rep. P(Punish)')
         ax.plot(w_values, y_total_naive, color=NAIVE_COLOR, linestyle='--', linewidth=FINAL_LINEWIDTH, label='Naive P(Punish)')
         if show_ylabel:
-            ax.set_ylabel("P(Punishment)", fontsize=FINAL_LABEL_FONTSIZE)
+            ax.set_ylabel("P(Punishment)", fontsize=label_fs)
     else:
-        # P(Harsh) solid, P(None) dotted
-        ax.plot(w_values, y_harsh_rep, color='blue', linestyle='-', linewidth=FINAL_LINEWIDTH, label='Rep. Harsh')
-        ax.plot(w_values, y_none_rep, color='blue', linestyle=':', linewidth=FINAL_LINEWIDTH, label='Rep. None')
-        ax.plot(w_values, y_harsh_naive, color=NAIVE_COLOR, linestyle='-', linewidth=FINAL_LINEWIDTH, label='Naive Harsh')
-        ax.plot(w_values, y_none_naive, color=NAIVE_COLOR, linestyle=':', linewidth=FINAL_LINEWIDTH, label='Naive None')
+        # P(Harsh) solid, P(Mild) dotted
+        ax.plot(w_values, y_harsh_rep, color='blue', linestyle=LINESTYLE_HARSH, linewidth=FINAL_LINEWIDTH, label='Rep. Harsh')
+        ax.plot(w_values, y_mild_rep, color='blue', linestyle=LINESTYLE_MILD, linewidth=FINAL_LINEWIDTH, label='Rep. Mild')
+        ax.plot(w_values, y_harsh_naive, color=NAIVE_COLOR, linestyle=LINESTYLE_HARSH, linewidth=FINAL_LINEWIDTH, label='Naive Harsh')
+        ax.plot(w_values, y_mild_naive, color=NAIVE_COLOR, linestyle=LINESTYLE_MILD, linewidth=FINAL_LINEWIDTH, label='Naive Mild')
         if show_ylabel:
-            ax.set_ylabel("P(Action)", fontsize=FINAL_LABEL_FONTSIZE)
+            ax.set_ylabel("P(Action)", fontsize=label_fs)
     
-    ax.set_xlabel("Authority's Belief (W)", fontsize=FINAL_LABEL_FONTSIZE)
+    ax.set_xlabel("Authority's Belief (W)", fontsize=label_fs)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.tick_params(axis='both', which='major', labelsize=FINAL_TICK_FONTSIZE)
+    ax.tick_params(axis='both', which='major', labelsize=tick_fs)
 
 
-def run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, agent_type, pol_values, auth_w, show_ylabel=True, inset_bottom=False):
+def run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, agent_type, pol_values, auth_w, show_ylabel=True, inset_bottom=False, font_mult=1.0):
     """
     Subplot: Trust Polarization Utility - only reputational agent, all 3 actions.
     Includes inset zoom boxes for the extremes (0-0.1 and 0.9-1.0).
     
     Args:
         inset_bottom: If True, place left inset at bottom-left to avoid covering main lines.
+        font_mult: Font size multiplier (default 1.0).
     """
     true_j, true_b = agent_type['j'], agent_type['b']
     
@@ -1406,16 +1422,20 @@ def run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, agen
     y_mild = np.array(y_mild)
     y_none = np.array(y_none)
     
-    # Main plot
-    ax.plot(pol_values, y_harsh, color='blue', linestyle='-', linewidth=FINAL_LINEWIDTH, label='Harsh')
-    ax.plot(pol_values, y_mild, color='blue', linestyle='--', linewidth=FINAL_LINEWIDTH, label='Mild')
-    ax.plot(pol_values, y_none, color='blue', linestyle=':', linewidth=FINAL_LINEWIDTH, label='None')
+    label_fs = int(FINAL_LABEL_FONTSIZE * font_mult)
+    tick_fs = int(FINAL_TICK_FONTSIZE * font_mult)
+    inset_tick_fs = int(FINAL_INSET_TICK_FONTSIZE * font_mult)
     
-    ax.set_xlabel("Distrust Level", fontsize=FINAL_LABEL_FONTSIZE)
+    # Main plot - using consistent line styles: Harsh=solid, Mild=dotted, None=dash-dot
+    ax.plot(pol_values, y_harsh, color='blue', linestyle=LINESTYLE_HARSH, linewidth=FINAL_LINEWIDTH, label='Harsh')
+    ax.plot(pol_values, y_mild, color='blue', linestyle=LINESTYLE_MILD, linewidth=FINAL_LINEWIDTH, label='Mild')
+    ax.plot(pol_values, y_none, color='blue', linestyle=LINESTYLE_NONE, linewidth=FINAL_LINEWIDTH, label='None')
+    
+    ax.set_xlabel("Distrust Level", fontsize=label_fs)
     if show_ylabel:
-        ax.set_ylabel("Reputational Utility", fontsize=FINAL_LABEL_FONTSIZE)
+        ax.set_ylabel("Reputational Utility", fontsize=label_fs)
     ax.set_xlim(0, 1)
-    ax.tick_params(axis='both', which='major', labelsize=FINAL_TICK_FONTSIZE)
+    ax.tick_params(axis='both', which='major', labelsize=tick_fs)
     
     # Inset 1: Left side (0.0 to 0.1) - position depends on inset_bottom flag
     if inset_bottom:
@@ -1426,15 +1446,15 @@ def run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, agen
     # Filter data for left inset
     mask_left = pol_values <= 0.1
     if np.any(mask_left):
-        axins1.plot(pol_values[mask_left], y_harsh[mask_left], color='blue', linestyle='-', linewidth=FINAL_INSET_LINEWIDTH)
-        axins1.plot(pol_values[mask_left], y_mild[mask_left], color='blue', linestyle='--', linewidth=FINAL_INSET_LINEWIDTH)
-        axins1.plot(pol_values[mask_left], y_none[mask_left], color='blue', linestyle=':', linewidth=FINAL_INSET_LINEWIDTH)
+        axins1.plot(pol_values[mask_left], y_harsh[mask_left], color='blue', linestyle=LINESTYLE_HARSH, linewidth=FINAL_INSET_LINEWIDTH)
+        axins1.plot(pol_values[mask_left], y_mild[mask_left], color='blue', linestyle=LINESTYLE_MILD, linewidth=FINAL_INSET_LINEWIDTH)
+        axins1.plot(pol_values[mask_left], y_none[mask_left], color='blue', linestyle=LINESTYLE_NONE, linewidth=FINAL_INSET_LINEWIDTH)
         axins1.set_xlim(0.0, 0.1)
         # Auto-scale y based on data range
         all_y_left = np.concatenate([y_harsh[mask_left], y_mild[mask_left], y_none[mask_left]])
         y_margin = (all_y_left.max() - all_y_left.min()) * 0.1
         axins1.set_ylim(all_y_left.min() - y_margin, all_y_left.max() + y_margin)
-        axins1.tick_params(axis='both', which='major', labelsize=FINAL_INSET_TICK_FONTSIZE)
+        axins1.tick_params(axis='both', which='major', labelsize=inset_tick_fs)
         ax.indicate_inset_zoom(axins1, edgecolor="black", linewidth=1.5)
     
     # Inset 2: Right side (0.9 to 1.0)
@@ -1443,15 +1463,15 @@ def run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, agen
     # Filter data for right inset
     mask_right = pol_values >= 0.9
     if np.any(mask_right):
-        axins2.plot(pol_values[mask_right], y_harsh[mask_right], color='blue', linestyle='-', linewidth=FINAL_INSET_LINEWIDTH)
-        axins2.plot(pol_values[mask_right], y_mild[mask_right], color='blue', linestyle='--', linewidth=FINAL_INSET_LINEWIDTH)
-        axins2.plot(pol_values[mask_right], y_none[mask_right], color='blue', linestyle=':', linewidth=FINAL_INSET_LINEWIDTH)
+        axins2.plot(pol_values[mask_right], y_harsh[mask_right], color='blue', linestyle=LINESTYLE_HARSH, linewidth=FINAL_INSET_LINEWIDTH)
+        axins2.plot(pol_values[mask_right], y_mild[mask_right], color='blue', linestyle=LINESTYLE_MILD, linewidth=FINAL_INSET_LINEWIDTH)
+        axins2.plot(pol_values[mask_right], y_none[mask_right], color='blue', linestyle=LINESTYLE_NONE, linewidth=FINAL_INSET_LINEWIDTH)
         axins2.set_xlim(0.9, 1.0)
         # Auto-scale y based on data range
         all_y_right = np.concatenate([y_harsh[mask_right], y_mild[mask_right], y_none[mask_right]])
         y_margin = (all_y_right.max() - all_y_right.min()) * 0.1
         axins2.set_ylim(all_y_right.min() - y_margin, all_y_right.max() + y_margin)
-        axins2.tick_params(axis='both', which='major', labelsize=FINAL_INSET_TICK_FONTSIZE)
+        axins2.tick_params(axis='both', which='major', labelsize=inset_tick_fs)
         ax.indicate_inset_zoom(axins2, edgecolor="black", linewidth=1.5)
 
 
@@ -1557,6 +1577,7 @@ def run_subplot_wrongness_polarization_utility_comm(model_ctx, ax, agent_type, p
     """
     Subplot: Wrongness Polarization Utility - communicative agent only, all 3 actions.
     Shows utility for None, Mild, and Harsh actions.
+    Uses consistent line styles: Harsh=solid, Mild=dotted, None=dash-dot.
     """
     true_j, true_b = agent_type['j'], agent_type['b']
     p_motives = ((1.0, 1.0), (1.0, 1.0), (1.0, 1.0))
@@ -1577,9 +1598,9 @@ def run_subplot_wrongness_polarization_utility_comm(model_ctx, ax, agent_type, p
         y_mild.append(utils_comm[1]['u_comm'])
         y_none.append(utils_comm[0]['u_comm'])
     
-    ax.plot(pol_values, y_harsh, color='red', linestyle='-', linewidth=FINAL_LINEWIDTH, label='Harsh')
-    ax.plot(pol_values, y_mild, color='red', linestyle='--', linewidth=FINAL_LINEWIDTH, label='Mild')
-    ax.plot(pol_values, y_none, color='red', linestyle=':', linewidth=FINAL_LINEWIDTH, label='None')
+    ax.plot(pol_values, y_harsh, color='red', linestyle=LINESTYLE_HARSH, linewidth=FINAL_LINEWIDTH, label='Harsh')
+    ax.plot(pol_values, y_mild, color='red', linestyle=LINESTYLE_MILD, linewidth=FINAL_LINEWIDTH, label='Mild')
+    ax.plot(pol_values, y_none, color='red', linestyle=LINESTYLE_NONE, linewidth=FINAL_LINEWIDTH, label='None')
     
     ax.set_xlabel("Polarization Level", fontsize=FINAL_LABEL_FONTSIZE)
     if show_ylabel:
@@ -1591,6 +1612,7 @@ def run_subplot_trust_polarization_utility_comm(model_ctx, ax, agent_type, pol_v
     """
     Subplot: Trust Polarization Utility - communicative agent only, all 3 actions.
     Shows utility for None, Mild, and Harsh actions.
+    Uses consistent line styles: Harsh=solid, Mild=dotted, None=dash-dot.
     """
     true_j, true_b = agent_type['j'], agent_type['b']
     
@@ -1619,9 +1641,9 @@ def run_subplot_trust_polarization_utility_comm(model_ctx, ax, agent_type, pol_v
         y_mild.append(utils_comm[1]['u_comm'])
         y_none.append(utils_comm[0]['u_comm'])
     
-    ax.plot(pol_values, y_harsh, color='red', linestyle='-', linewidth=FINAL_LINEWIDTH, label='Harsh')
-    ax.plot(pol_values, y_mild, color='red', linestyle='--', linewidth=FINAL_LINEWIDTH, label='Mild')
-    ax.plot(pol_values, y_none, color='red', linestyle=':', linewidth=FINAL_LINEWIDTH, label='None')
+    ax.plot(pol_values, y_harsh, color='red', linestyle=LINESTYLE_HARSH, linewidth=FINAL_LINEWIDTH, label='Harsh')
+    ax.plot(pol_values, y_mild, color='red', linestyle=LINESTYLE_MILD, linewidth=FINAL_LINEWIDTH, label='Mild')
+    ax.plot(pol_values, y_none, color='red', linestyle=LINESTYLE_NONE, linewidth=FINAL_LINEWIDTH, label='None')
     
     ax.set_xlabel("Distrust Level", fontsize=FINAL_LABEL_FONTSIZE)
     if show_ylabel:
@@ -1665,10 +1687,13 @@ def run_final_figure_1(model_ctx, filename="final_fig1.png"):
     # Row 2: 1 centered subplot spanning the middle 2 positions
     ax_row2 = fig.add_subplot(2, 4, (6, 7))
     
-    fig.suptitle("Reputational Agent Behavior Analysis", fontsize=18, fontweight='bold')
+    fig.suptitle("Reputational Agent Behavior Analysis", fontsize=FINAL_SUPTITLE_FONTSIZE, fontweight='bold')
     
     w_values = np.linspace(0.0, 1.0, 100)
     pol_values = np.linspace(0.0, 1.0, 100)
+    
+    # Unique alphabetical labels: Row 1 = A-D, Row 2 = E
+    row1_labels = ['A', 'B', 'C', 'D']
     
     # Row 1: Polarized Wrongness for each agent type (reordered)
     for col, agent_idx in enumerate(FINAL_AGENT_ORDER):
@@ -1680,6 +1705,8 @@ def run_final_figure_1(model_ctx, filename="final_fig1.png"):
         run_subplot_polarized_wrongness_final(model_ctx, ax, agent_type, w_values, show_ylabel=show_ylabel)
         if col == 0:
             ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row1_labels[col], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Row 2: Wrongness Polarization Utility (High J, Anti-B, W=1.0)
     logger.info("  Processing Row 2: Wrongness Polarization Utility")
@@ -1687,6 +1714,8 @@ def run_final_figure_1(model_ctx, filename="final_fig1.png"):
     ax_row2.set_title("Wrongness Polarization: Reputational Utility Components", fontsize=FINAL_TITLE_FONTSIZE)
     run_subplot_wrongness_polarization_utility_final(model_ctx, ax_row2, agent_type_for_utility, pol_values, auth_w=1.0)
     ax_row2.legend(loc='upper right', fontsize=FINAL_LEGEND_FONTSIZE)
+    # Add unique alphabetical label
+    ax_row2.text(-0.06, 1.05, 'E', transform=ax_row2.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
@@ -1741,10 +1770,14 @@ def run_final_figure_2(model_ctx, filename="final_fig2.png"):
     ax_row3_left = fig.add_subplot(3, 4, 10)
     ax_row3_right = fig.add_subplot(3, 4, 11)
     
-    fig.suptitle("Reputational Agent: Punishment Probabilities and Utility Analysis", fontsize=18, fontweight='bold')
+    fig.suptitle("Reputational Agent: Punishment Probabilities and Utility Analysis", fontsize=FINAL_SUPTITLE_FONTSIZE, fontweight='bold')
     
     w_values = np.linspace(0.0, 1.0, 100)
     pol_values = np.linspace(0.0, 1.0, 200)  # More points for smoother inset zooms
+    
+    # Unique alphabetical labels: Row 1 = A-D, Row 2 = E-H, Row 3 = I-J
+    row1_labels = ['A', 'B', 'C', 'D']
+    row2_labels = ['E', 'F', 'G', 'H']
     
     # Row 1: Polarized Motives - Total Punishment (reordered)
     for col, agent_idx in enumerate(FINAL_AGENT_ORDER):
@@ -1756,6 +1789,8 @@ def run_final_figure_2(model_ctx, filename="final_fig2.png"):
         run_subplot_polarized_motives_final(model_ctx, ax, agent_type, w_values, show_separate=False, show_ylabel=show_ylabel)
         if col == 0:
             ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row1_labels[col], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Row 2: Polarized Motives - Harsh and Mild separate (reordered)
     for col, agent_idx in enumerate(FINAL_AGENT_ORDER):
@@ -1767,6 +1802,8 @@ def run_final_figure_2(model_ctx, filename="final_fig2.png"):
         run_subplot_polarized_motives_final(model_ctx, ax, agent_type, w_values, show_separate=True, show_ylabel=show_ylabel)
         if col == 0:
             ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row2_labels[col], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Row 3: Trust Polarization Utility with insets
     # Left plot: High J, Anti-B (AGENT_TYPES[0])
@@ -1775,6 +1812,8 @@ def run_final_figure_2(model_ctx, filename="final_fig2.png"):
     ax_row3_left.set_title("Anti-Bias", fontsize=FINAL_TITLE_FONTSIZE + 2, fontweight='bold')
     run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax_row3_left, agent_type_anti, pol_values, auth_w=1.0)
     ax_row3_left.legend(loc='lower left', fontsize=FINAL_LEGEND_FONTSIZE)
+    # Add unique alphabetical label
+    ax_row3_left.text(-0.12, 1.05, 'I', transform=ax_row3_left.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Right plot: High J, Pro-B (AGENT_TYPES[1])
     logger.info("  Processing Row 3, right: Pro-Bias")
@@ -1782,6 +1821,8 @@ def run_final_figure_2(model_ctx, filename="final_fig2.png"):
     ax_row3_right.set_title("Pro-Bias", fontsize=FINAL_TITLE_FONTSIZE + 2, fontweight='bold')
     run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax_row3_right, agent_type_pro, pol_values, auth_w=1.0, show_ylabel=False)
     ax_row3_right.legend(loc='lower left', fontsize=FINAL_LEGEND_FONTSIZE)
+    # Add unique alphabetical label
+    ax_row3_right.text(-0.12, 1.05, 'J', transform=ax_row3_right.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.94)
@@ -1794,8 +1835,8 @@ def run_final_figure_1_alt(model_ctx, filename="final_fig1_alt.png"):
     """
     Alternative Final Figure 1: Single row layout (1 row x 5 columns)
     
-    Columns 1-4: Polarized Wrongness plots for each agent type (labelled "A")
-    Column 5: Wrongness Polarization Utility plot (labelled "B")
+    Columns 1-4: Polarized Wrongness plots for each agent type (labelled A-D)
+    Column 5: Wrongness Polarization Utility plot (labelled E)
     """
     figure_start = time.time()
     logger.info("=" * 60)
@@ -1803,10 +1844,12 @@ def run_final_figure_1_alt(model_ctx, filename="final_fig1_alt.png"):
     
     fig, axes = plt.subplots(1, 5, figsize=(30, 6))
     
-    fig.suptitle("Reputational Agent Behavior Analysis", fontsize=18, fontweight='bold')
+    fig.suptitle("Reputational Agent Behavior Analysis", fontsize=FINAL_SUPTITLE_FONTSIZE, fontweight='bold', y=0.98)
     
     w_values = np.linspace(0.0, 1.0, 100)
     pol_values = np.linspace(0.0, 1.0, 100)
+    
+    subplot_labels = ['A', 'B', 'C', 'D', 'E']
     
     # Columns 1-4: Polarized Wrongness for each agent type (reordered)
     for col, agent_idx in enumerate(FINAL_AGENT_ORDER):
@@ -1818,8 +1861,8 @@ def run_final_figure_1_alt(model_ctx, filename="final_fig1_alt.png"):
         run_subplot_polarized_wrongness_final(model_ctx, ax, agent_type, w_values, show_ylabel=show_ylabel)
         if col == 0:
             ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
-        # Add "A" label
-        ax.text(-0.12, 1.05, 'A', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, subplot_labels[col], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Column 5: Wrongness Polarization Utility (High J, Anti-B, W=1.0)
     logger.info("  Processing column 5/5: Utility")
@@ -1828,11 +1871,11 @@ def run_final_figure_1_alt(model_ctx, filename="final_fig1_alt.png"):
     ax.set_title("Wrongness Polarization\nReputational Utility", fontsize=FINAL_TITLE_FONTSIZE)
     run_subplot_wrongness_polarization_utility_final(model_ctx, ax, agent_type_for_utility, pol_values, auth_w=1.0, show_ylabel=True)
     ax.legend(loc='upper right', fontsize=FINAL_LEGEND_FONTSIZE)
-    # Add "B" label
-    ax.text(-0.12, 1.05, 'B', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+    # Add unique alphabetical label
+    ax.text(-0.12, 1.05, subplot_labels[4], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     plt.tight_layout()
-    plt.subplots_adjust(top=0.85)
+    plt.subplots_adjust(top=0.82)
     plt.savefig(filename, dpi=150)
     plt.close(fig)
     logger.info(f"Final Figure 1 (Alternative) saved to {filename} in {time.time() - figure_start:.2f}s")
@@ -1840,72 +1883,84 @@ def run_final_figure_1_alt(model_ctx, filename="final_fig1_alt.png"):
 
 def run_final_figure_2_alt(model_ctx, filename="final_fig2_alt.png"):
     """
-    Alternative Final Figure 2: 2 rows x 5 columns layout
+    Alternative Final Figure 2: 2 rows x 5 columns layout (1.25x larger fonts)
     
-    Columns 1-4: Polarized Motives plots (labelled "A")
-        Row 1: P(Punishment) dashed
-        Row 2: P(Harsh) solid, P(None) dotted
-    Column 5: Trust Polarization Utility (labelled "B")
-        Row 1: Anti-Bias
-        Row 2: Pro-Bias
+    Columns 1-4: Polarized Motives plots
+        Row 1: P(Punishment) dashed (labelled A-D)
+        Row 2: P(Harsh) solid, P(Mild) dotted (labelled F-I)
+    Column 5: Trust Polarization Utility
+        Row 1: Anti-Bias (labelled E)
+        Row 2: Pro-Bias (labelled J)
     """
     figure_start = time.time()
     logger.info("=" * 60)
     logger.info("Starting Final Figure 2 (Alternative)")
     
+    # Use 1.25x larger fonts for this figure
+    fm = FIG2_ALT_FONT_MULTIPLIER
+    title_fs = int(FINAL_TITLE_FONTSIZE * fm)
+    suptitle_fs = int(FINAL_SUPTITLE_FONTSIZE * fm)
+    legend_fs = int(FINAL_LEGEND_FONTSIZE * fm)
+    label_fs = int(FINAL_SUBPLOT_LABEL_FONTSIZE * fm)
+    
     fig, axes = plt.subplots(2, 5, figsize=(30, 12))
     
-    fig.suptitle("Reputational Agent: Punishment Probabilities and Utility Analysis", fontsize=18, fontweight='bold')
+    fig.suptitle("Reputational Agent: Punishment Probabilities and Utility Analysis", fontsize=suptitle_fs, fontweight='bold', y=0.98)
     
     w_values = np.linspace(0.0, 1.0, 100)
     pol_values = np.linspace(0.0, 1.0, 200)
+    
+    # Alphabetical labels: Row 1 = A-E, Row 2 = F-J
+    # Layout: Row 1 cols 0-3 = A-D, col 4 = E; Row 2 cols 0-3 = F-I, col 4 = J
+    row1_labels = ['A', 'B', 'C', 'D', 'E']
+    row2_labels = ['F', 'G', 'H', 'I', 'J']
     
     # Row 1: P(Punishment) dashed for all 4 agent types
     for col, agent_idx in enumerate(FINAL_AGENT_ORDER):
         agent_type = AGENT_TYPES[agent_idx]
         logger.info(f"  Row 1, column {col+1}/5: {agent_type['label']}")
         ax = axes[0, col]
-        ax.set_title(f"{agent_type['label']}\nPolarized Motives", fontsize=FINAL_TITLE_FONTSIZE)
+        ax.set_title(f"{agent_type['label']}\nPolarized Motives", fontsize=title_fs)
         show_ylabel = (col == 0)
-        run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, show_total=True, show_ylabel=show_ylabel)
+        run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, show_total=True, show_ylabel=show_ylabel, font_mult=fm)
         if col == 0:
-            ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
-        # Add "A" label
-        ax.text(-0.12, 1.05, 'A', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+            ax.legend(loc='upper left', fontsize=legend_fs)
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row1_labels[col], transform=ax.transAxes, fontsize=label_fs, fontweight='bold', va='bottom')
     
     # Row 1, Column 5: Anti-Bias Utility
     logger.info("  Row 1, column 5/5: Anti-Bias Utility")
     ax = axes[0, 4]
-    ax.set_title("Anti-Bias\nTrust Polarization Utility", fontsize=FINAL_TITLE_FONTSIZE)
-    run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, AGENT_TYPES[0], pol_values, auth_w=1.0, show_ylabel=True, inset_bottom=True)
-    ax.legend(loc='lower right', fontsize=FINAL_LEGEND_FONTSIZE - 1)
-    # Add "B" label
-    ax.text(-0.12, 1.05, 'B', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+    ax.set_title("Anti-Bias\nTrust Polarization Utility", fontsize=title_fs)
+    run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, AGENT_TYPES[0], pol_values, auth_w=1.0, show_ylabel=True, inset_bottom=True, font_mult=fm)
+    ax.legend(loc='lower right', fontsize=legend_fs - 1)
+    # Add unique alphabetical label
+    ax.text(-0.12, 1.05, row1_labels[4], transform=ax.transAxes, fontsize=label_fs, fontweight='bold', va='bottom')
     
-    # Row 2: P(Harsh) solid, P(None) dotted for all 4 agent types
+    # Row 2: P(Harsh) solid, P(Mild) dotted for all 4 agent types
     for col, agent_idx in enumerate(FINAL_AGENT_ORDER):
         agent_type = AGENT_TYPES[agent_idx]
         logger.info(f"  Row 2, column {col+1}/5: {agent_type['label']}")
         ax = axes[1, col]
-        ax.set_title(f"P(Harsh) and P(None)", fontsize=FINAL_TITLE_FONTSIZE)
+        ax.set_title(f"P(Harsh) and P(Mild)", fontsize=title_fs)
         show_ylabel = (col == 0)
-        run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, show_total=False, show_ylabel=show_ylabel)
+        run_subplot_polarized_motives_final_v2(model_ctx, ax, agent_type, w_values, show_total=False, show_ylabel=show_ylabel, font_mult=fm)
         if col == 0:
-            ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
-        # Add "A" label
-        ax.text(-0.12, 1.05, 'A', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+            ax.legend(loc='upper left', fontsize=legend_fs)
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row2_labels[col], transform=ax.transAxes, fontsize=label_fs, fontweight='bold', va='bottom')
     
     # Row 2, Column 5: Pro-Bias Utility
     logger.info("  Row 2, column 5/5: Pro-Bias Utility")
     ax = axes[1, 4]
-    ax.set_title("Pro-Bias\nTrust Polarization Utility", fontsize=FINAL_TITLE_FONTSIZE)
-    run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, AGENT_TYPES[1], pol_values, auth_w=1.0, show_ylabel=True, inset_bottom=True)
-    ax.legend(loc='lower right', fontsize=FINAL_LEGEND_FONTSIZE - 1)
-    # Add "B" label
-    ax.text(-0.12, 1.05, 'B', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+    ax.set_title("Pro-Bias\nTrust Polarization Utility", fontsize=title_fs)
+    run_subplot_trust_polarization_utility_final_with_insets(model_ctx, ax, AGENT_TYPES[1], pol_values, auth_w=1.0, show_ylabel=True, inset_bottom=True, font_mult=fm)
+    ax.legend(loc='lower right', fontsize=legend_fs - 1)
+    # Add unique alphabetical label
+    ax.text(-0.12, 1.05, row2_labels[4], transform=ax.transAxes, fontsize=label_fs, fontweight='bold', va='bottom')
     
     plt.tight_layout()
-    plt.subplots_adjust(top=0.92)
+    plt.subplots_adjust(top=0.90)
     plt.savefig(filename, dpi=150)
     plt.close(fig)
     logger.info(f"Final Figure 2 (Alternative) saved to {filename} in {time.time() - figure_start:.2f}s")
@@ -1915,20 +1970,15 @@ def run_final_figure_3(model_ctx, filename="final_fig3.png"):
     """
     Final Figure 3: Communicative agent analysis
     
-    Part A (top-left 2x2):
-        Row 1: Polarized Wrongness - Naive (dark grey) and Communicative (red) agents
-               Only High Justice configurations (High J Anti-B, High J Pro-B)
-        Row 2: Polarized Motives - same setup
+    Layout: 2 rows x 4 columns with whitespace
     
-    Part B (right side):
-        Top: Wrongness Polarization Utility - Communicative agent only
-             Configuration: W=0.5, High J, Anti-B
-        Bottom: Trust Polarization Utility - Communicative agent only
-                Two plots: High J Anti-B and High J Pro-B, both at W=0.5
+    Row 1: [Polarized Wrongness Anti-B (A)] [Polarized Wrongness Pro-B (B)] [empty] [Wrongness Utility (C)]
+    Row 2: [Polarized Motives Anti-B (D)] [Polarized Motives Pro-B (E)] [Trust Utility Anti-B (F)] [Trust Utility Pro-B (G)]
     
-    Layout: 2 rows x 4 columns (complex grid)
-    Row 1: [Part A top-left] [Part A top-right] [empty] [Part B top]
-    Row 2: [Part A bottom-left] [Part A bottom-right] [Part B bottom-left] [Part B bottom-right]
+    Part A (columns 0-1): Policy plots with Naive (dark grey) and Communicative (red)
+    Part B (columns 2-3): Utility plots for Communicative agent only
+    
+    Top utility subplot is same size as others, centered with whitespace in column 2.
     """
     figure_start = time.time()
     logger.info("=" * 60)
@@ -1943,12 +1993,17 @@ def run_final_figure_3(model_ctx, filename="final_fig3.png"):
     w_values = np.linspace(0.0, 1.0, 100)
     pol_values = np.linspace(0.0, 1.0, 100)
     
-    fig.suptitle("Communicative Agent Analysis", fontsize=18, fontweight='bold')
+    fig.suptitle("Communicative Agent Analysis", fontsize=FINAL_SUPTITLE_FONTSIZE, fontweight='bold')
     
     # High Justice agent types: High J Anti-B (index 0), High J Pro-B (index 1)
     high_j_agents = [AGENT_TYPES[0], AGENT_TYPES[1]]
     
+    # Unique alphabetical labels for all 7 subplots
+    # Row 1: A, B, (empty), C
+    # Row 2: D, E, F, G
+    
     # Part A - Row 1: Polarized Wrongness (Naive + Communicative)
+    row1_policy_labels = ['A', 'B']
     for col, agent_type in enumerate(high_j_agents):
         logger.info(f"  Part A Row 1, column {col+1}/2: {agent_type['label']}")
         ax = fig.add_subplot(gs[0, col])
@@ -1957,10 +2012,11 @@ def run_final_figure_3(model_ctx, filename="final_fig3.png"):
         run_subplot_polarized_wrongness_naive_comm(model_ctx, ax, agent_type, w_values, show_ylabel=show_ylabel)
         if col == 0:
             ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
-        # Add "A" label
-        ax.text(-0.12, 1.05, 'A', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row1_policy_labels[col], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Part A - Row 2: Polarized Motives (Naive + Communicative)
+    row2_policy_labels = ['D', 'E']
     for col, agent_type in enumerate(high_j_agents):
         logger.info(f"  Part A Row 2, column {col+1}/2: {agent_type['label']}")
         ax = fig.add_subplot(gs[1, col])
@@ -1969,18 +2025,18 @@ def run_final_figure_3(model_ctx, filename="final_fig3.png"):
         run_subplot_polarized_motives_naive_comm(model_ctx, ax, agent_type, w_values, show_ylabel=show_ylabel)
         if col == 0:
             ax.legend(loc='upper left', fontsize=FINAL_LEGEND_FONTSIZE)
-        # Add "A" label
-        ax.text(-0.12, 1.05, 'A', transform=ax.transAxes, fontsize=16, fontweight='bold', va='bottom')
+        # Add unique alphabetical label
+        ax.text(-0.12, 1.05, row2_policy_labels[col], transform=ax.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Part B - Top: Wrongness Polarization Utility (Communicative only, W=0.5, High J Anti-B)
-    # Spans columns 2-3 in row 0
+    # Centered over columns 2-3 (left side of the whitespace area)
     logger.info("  Part B Top: Wrongness Polarization Utility")
-    ax_b_top = fig.add_subplot(gs[0, 2:4])
+    ax_b_top = fig.add_subplot(gs[0, 2])  # Column 2, leaving column 3 as whitespace (centered/left of whitespace)
     ax_b_top.set_title("Wrongness Polarization\nCommunicative Utility", fontsize=FINAL_TITLE_FONTSIZE)
     run_subplot_wrongness_polarization_utility_comm(model_ctx, ax_b_top, AGENT_TYPES[0], pol_values, auth_w=0.5, show_ylabel=True)
     ax_b_top.legend(loc='upper right', fontsize=FINAL_LEGEND_FONTSIZE)
-    # Add "B" label
-    ax_b_top.text(-0.06, 1.05, 'B', transform=ax_b_top.transAxes, fontsize=16, fontweight='bold', va='bottom')
+    # Add unique alphabetical label
+    ax_b_top.text(-0.12, 1.05, 'C', transform=ax_b_top.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     # Part B - Bottom: Trust Polarization Utility (Communicative only, W=0.5)
     # Two separate plots: High J Anti-B and High J Pro-B
@@ -1989,16 +2045,16 @@ def run_final_figure_3(model_ctx, filename="final_fig3.png"):
     ax_b_bl.set_title("Anti-Bias\nTrust Polarization", fontsize=FINAL_TITLE_FONTSIZE)
     run_subplot_trust_polarization_utility_comm(model_ctx, ax_b_bl, AGENT_TYPES[0], pol_values, auth_w=0.5, show_ylabel=True)
     ax_b_bl.legend(loc='lower left', fontsize=FINAL_LEGEND_FONTSIZE)
-    # Add "B" label
-    ax_b_bl.text(-0.12, 1.05, 'B', transform=ax_b_bl.transAxes, fontsize=16, fontweight='bold', va='bottom')
+    # Add unique alphabetical label
+    ax_b_bl.text(-0.12, 1.05, 'F', transform=ax_b_bl.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     logger.info("  Part B Bottom-Right: Pro-Bias Trust Utility")
     ax_b_br = fig.add_subplot(gs[1, 3])
     ax_b_br.set_title("Pro-Bias\nTrust Polarization", fontsize=FINAL_TITLE_FONTSIZE)
     run_subplot_trust_polarization_utility_comm(model_ctx, ax_b_br, AGENT_TYPES[1], pol_values, auth_w=0.5, show_ylabel=False)
     ax_b_br.legend(loc='lower left', fontsize=FINAL_LEGEND_FONTSIZE)
-    # Add "B" label
-    ax_b_br.text(-0.12, 1.05, 'B', transform=ax_b_br.transAxes, fontsize=16, fontweight='bold', va='bottom')
+    # Add unique alphabetical label
+    ax_b_br.text(-0.12, 1.05, 'G', transform=ax_b_br.transAxes, fontsize=FINAL_SUBPLOT_LABEL_FONTSIZE, fontweight='bold', va='bottom')
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.92)
