@@ -1,4 +1,4 @@
-export SAVE_DIR="./visualizations/final_plots/run_5_rep_and_comm_w_cost_self_0.05"
+export SAVE_DIR="./visualizations/final_plots/run_6_rep_and_comm_w_cost_self_0.0_better_aesthetics"
 # python3 new_models/plot_results.py --punishment none --save-dir $SAVE_DIR"/harsh_and_none" --device gpu
 
 # python3 new_models/plot_results.py --punishment mild --save-dir $SAVE_DIR"/harsh_and_mild" --device gpu
